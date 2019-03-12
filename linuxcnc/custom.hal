@@ -1,0 +1,3 @@
+# Include your customized HAL commands here
+# This file will not be overwritten when you run stepconf again
+# net A.ferror axis.3.f-error pyvcp.ferror
