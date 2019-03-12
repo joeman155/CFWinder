@@ -1,38 +1,54 @@
 <!DOCTYPE html>
 <!--
-To change this license header, choose License Headers in Project Properties.
-To change this template file, choose Tools | Templates
-and open the template in the editor.
--->
-<?php
-require "Wind.php";
+License to Joseph Turner
 
-$wind = new Wind(0.0381, 30, 180, 0.005);
-?>
+GPL - FREE IN EVERY SENSE. 
+
+USE AT YOUR OWN RISK.
+-->
 <html>
     <head>
         <meta charset="UTF-8">
-        <title>CF Winder G-Code Generator</title>
+        <title>CFWinder Tube Landing Page</title>
     </head>
     <body>
-        <?php
-        $feedRate = 1000;
-        // put your code here
-        print "Mandrel Circumference is : " . $wind->getMandrelCircumference() . "<br />";
-
-        print "Tube Length: "; 
-        print $wind->getTubeLength() . " meters." . "<br />";
-        print "Train speed at " . $feedRate . " is: " . $wind->calculateTrainSpeed($feedRate) . " mm/min" . "<br />";
-        print "Spindle speed at Feedrate: " . $feedRate . " is " . $wind->calculateSpindleSpeed($feedRate) . " degrees/min" . "<br />";
-        
-        print "Number of passes (in one direction): " . $wind->calculatePassesToCoverMandrel() . "<br />";
-        
-        print "Ideal Advance of CF Thread after integer rotations: " . $wind->idealCFAdvancement() . "<br />";
-        print "Actual Advance of CF Thread after integer rotations: " . $wind->actualCFAdvancement() . "<br />";
-        print "Actual Advance ANGLE of Mandrel after integer rotations: " . $wind->actualCFAdvancementAngle(). " degrees" . "<br />";
-        
-        $wind->generatePass();
-        
-        ?>
-    </body> 
+        <form action="process.php">
+            <table>
+                <tr>
+                    <th>
+                        Parameter
+                    </th>
+                    <th>
+                        Value
+                    </th>
+                </tr>
+                <tr>
+                    <td>
+                        Mandrel Radius (meters)
+                    </td>
+                    <td>
+                        <input type="text" name="mandrelRadius" value="0.0381" />
+                    </td>
+                </tr>
+            <tr>
+                <td>Carbon Fiber Laydown Angle (degrees)</td>
+                <td><input type="text" name="cf_angle" value="30" /></td>
+            </tr>     
+            <tr>
+                <td>Carbon Fiber width (meters)</td>
+                <td><input type="text" name="cf_width" value="0.005" /></td>
+            </tr>
+            <tr>
+                <td>Wind angle per pass (offset from the starting angle)</td>
+                <td><input type="text" name="wind_angle_per_pass" value="180" /></td>
+            </tr>      
+            <tr>
+                <td>Horizontal starting position (meters)</td>
+                <td><input type="text" name="start_x" value="0.315" /></td>
+            </tr>                 
+            </table>
+            
+            <input type="submit" value="Generate GCode" name="generate_gcode" />
+        </form>
+    </body>
 </html>
