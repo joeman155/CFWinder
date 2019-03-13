@@ -14,6 +14,7 @@
 class Wind {
     private $mandrelRadius;                // Meters
     private $cf_angle;                     // Degrees
+    private $length_multiplier;            // Multiples of length the tube is going to be.
     private $wind_angle_per_pass;          // Degrees - the offset from the starting point
     private $cf_width;                     // Width of fiber in Meters
     
@@ -32,15 +33,19 @@ class Wind {
     private $start_x;
     private $start_y;
     private $gcodes;                        // Array of codes
-    public $sig_figures = 4;               // Number of digits after decimal point
+    public  $sig_figures;                   // Number of digits after decimal point
+    public  $cf_weight_per_meter;           // 1 meter of Carbon Fiber weighs 0.8grams
+    
+    public  $wind_time;                     // Time required to wind.
     
 
     public function __construct($mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width,
-                                $start_x=0, $start_y=0) {
+                                $length_multiplier, $start_x=0, $start_y=0) {
         $this->cf_angle = $cf_angle;
         $this->mandrelRadius = $mandrelRadius;
         $this->wind_angle_per_pass = $wind_angle_per_pass;
         $this->cf_width = $cf_width;
+        $this->length_multiplier = $length_multiplier;
         
         $this->start_x = $start_x;
         $this->start_y = $start_y;
@@ -50,7 +55,16 @@ class Wind {
         
         $this->gcodes = array();
         
+        
+        $this->cf_weight_per_meter = 0.8;
+        $this->sig_figures = 4;
+        $this->wind_time = 0;
+        
     }
+    
+    public function getCFWeight() {
+             return $this->cf_weight_per_meter * $this->calculateCFLengthRequiredOneLayer();
+    }    
     
     public function getWindAnglePerPass() {
              return $this->wind_angle_per_pass;
@@ -73,7 +87,7 @@ class Wind {
     }
     
     public function getTubeLength() {
-        return (pi() * $this->wind_angle_per_pass / 180) * $this->mandrelRadius / tan(pi() * $this->cf_angle/180);
+        return ($this->length_multiplier * pi() * $this->wind_angle_per_pass / 180) * $this->mandrelRadius / tan(pi() * $this->cf_angle/180);
     }
     
     public function calculateTrainSpeed($feedRate) {
@@ -106,11 +120,16 @@ class Wind {
         return pi() * 2 * $this->mandrelRadius * $this->getTubeLength();
     }
     
-    public function calculateCFLengthRequired() {
-        return $this->calculateSurfaceArea()/ $this->cf_width;
+    /*
+     * This is length of CF for one pass.
+     * NOTE, we need go X times in one direction and X times in the other direction. So...one could 
+     *       say we actually do two layers in ONE pass.
+     */
+    public function calculateCFLengthRequiredOneLayer() {
+        return 2 * $this->calculateSurfaceArea()/ $this->cf_width;
     }
     
-    public function calcualteCFMetersOnePass() {
+    public function calculateCFMetersOnePass() {
         return $this->getTubeLength() / cos(pi() * $this->cf_angle/180);
     }
     
@@ -119,7 +138,7 @@ class Wind {
      * gaps!
      */
     public function calculatePassesToCoverMandrel() {
-        return ceil($this->calculateCFLengthRequired() / $this->calcualteCFMetersOnePass());
+        return ceil(($this->calculateCFLengthRequiredOneLayer()/2) / $this->calculateCFMetersOnePass());
     }
     
     /*
@@ -132,6 +151,15 @@ class Wind {
        return $y_travel;    
     }
     
+    public function addTime($wind_time) {
+        $this->wind_time = $this->wind_time + $wind_time;
+    }
+
+
+    public function getTime() {
+        return $this->wind_time;
+    }
+
     
     public function generatePass() {
         
@@ -189,6 +217,27 @@ class Wind {
         // print "X_Travel: " . $x_travel . ", Feedrate: " . $feedrate . ", Y_Travel: " . $y_travel . "<br />";
     }
     
+    public function calculateXSpeed($feedrate, $x_travel) {
+        $x_speed = abs($feedrate/ sqrt(1 + pow($this->cf_angle/$x_travel, 2)));
+        
+        return $x_speed;
+    }
+    
+    
+    /*
+     * Calculate the Tangential velocity
+     * 
+     * V = w r
+     */
+    public function calculateYSpeed($feedrate) {
+        $rotation_speed = (pi()/180) * $feedrate / 60;   // Rotational rate in Radians/second
+        
+        $y_speed = abs($rotation_speed * $this->mandrelRadius);
+        
+        return $y_speed;
+    }
+
+    
     public function generateXYCode($x_travel, $y_travel, $feedrate) {
         // Calculate new positions
         $this->current_x = $this->current_x + $x_travel;
@@ -198,6 +247,13 @@ class Wind {
             $this->current_x = 0;
         }
         
+        // Calculate the time to do this maneuver
+        $wind_time = abs($x_travel) / $this->calculateXSpeed($feedrate, $x_travel);
+        
+        // print "xyWind Time: " . $wind_time . "<br/>";
+        // Add to the total time 
+        $this->addTime($wind_time);
+        
         $code_text = "G1 F" . $feedrate . " X" . 1000 * round($this->current_x, $this->sig_figures) . " Y" . round($this->current_y, $this->sig_figures);
         array_push($this->gcodes, $code_text);
     }
@@ -205,6 +261,14 @@ class Wind {
     public function generateYCode($y_travel, $feedrate) { 
         // Calculate new positions
         $this->current_y = $this->current_y + $y_travel;
+
+        // Calculate the time to do this maneuver
+        $y_travel_meters = (pi()/180) * $y_travel * $this->mandrelRadius;
+        $wind_time = abs($y_travel_meters) / $this->calculateYSpeed($feedrate, $y_travel);
+        
+        // print "yWind Time: " . $wind_time . "<br/>";
+        // Add to the total time 
+        $this->addTime($wind_time);
         
         $code_text = "G1 F" . $feedrate . " Y" . round($this->current_y, $this->sig_figures);
         array_push($this->gcodes, $code_text);

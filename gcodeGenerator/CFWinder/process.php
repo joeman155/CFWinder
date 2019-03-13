@@ -10,10 +10,13 @@ require "Wind.php";
 $mandrelRadius       = $_REQUEST['mandrelRadius'];
 $cf_width            = $_REQUEST['cf_width'];
 $cf_angle            = $_REQUEST['cf_angle'];
+$length_multiplier   = $_REQUEST['length_multiplier'];
 $wind_angle_per_pass = $_REQUEST['wind_angle_per_pass'];
 $start_x             = $_REQUEST['start_x'];
     
-$wind = new Wind($mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width, $start_x);
+$wind = new Wind($mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width, $length_multiplier, $start_x);
+
+$wind->generateGCodes();
 ?>
 <html>
     <head>
@@ -78,19 +81,30 @@ $wind = new Wind($mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width, $st
             </tr>
             <tr>
                 <td>Meters of CF required for single layer</td>
-                <td><?=round($wind->calculateCFLengthRequired(), $wind->sig_figures)?></td>
+                <td><?=round($wind->calculateCFLengthRequiredOneLayer(), $wind->sig_figures)?></td>
             </tr>
             <tr>
                 <td># of Passes required to make one layer
                     <br/> (In one direction)</td>
                 <td><?=round($wind->calculatePassesToCoverMandrel(), $wind->sig_figures)?></td>
-            </tr>       
+            </tr>
+            <tr>
+                <td>Weight of Carbon Fiber used (12k)</td>
+                <td><?=round($wind->getCFWeight(), $wind->sig_figures)?> grams</td>
+            </tr>     
+            <tr>
+                <td>Time to wind one layer</td>
+                <td><?=round($wind->getTime(), $wind->sig_figures)?> seconds</td>
+            </tr>               
         </table>
+        
+        
+        
 
         <input type="button" value="Return to Input Page" name="return_to_input_page" onClick="location.href='index.php'"/>
         <?php
         
-        $wind->generateGCodes();
+        
         
         print "<h1>Codes</h1>";
         print "# of codes: ";
