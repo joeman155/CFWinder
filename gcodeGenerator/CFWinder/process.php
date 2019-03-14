@@ -93,8 +93,16 @@ $wind->generateGCodes();
                 <td><?=round($wind->getCFWeight(), $wind->sig_figures)?> grams</td>
             </tr>     
             <tr>
+                <td>Transition X distance (meters)</td>
+                <td><?=round($wind->getTotalXTransitionDistance(), $wind->sig_figures)?> meters</td>
+            </tr>                 
+            <tr>
+                <td>Transition Y distance (degrees)</td>
+                <td><?=round($wind->getTotalYTransitionDistance(), $wind->sig_figures)?> degrees</td>
+            </tr>                  
+            <tr>
                 <td>Time to wind one layer</td>
-                <td><?=round($wind->getTime(), $wind->sig_figures)?> seconds</td>
+                <td><?=round($wind->getTime(), $wind->sig_figures)?> seconds (<?=round($wind->getTime()/60, 1)?> minutes)</td>
             </tr>               
         </table>
         
