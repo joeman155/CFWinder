@@ -16,7 +16,7 @@ $length_multiplier   = $_REQUEST['length_multiplier'];
 $wind_angle_per_pass = $_REQUEST['wind_angle_per_pass'];
 $start_x             = $_REQUEST['start_x'];
     
-$wind = new Wind($useful_tube_length, $mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width, $length_multiplier, $start_x);
+$wind = new Wind($useful_tube_length, $mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width, $start_x);
 
 $wind->generateGCodes();
 ?>

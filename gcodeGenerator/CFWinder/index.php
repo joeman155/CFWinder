@@ -42,24 +42,7 @@ USE AT YOUR OWN RISK.
             <tr>
                 <td>Carbon Fiber Laydown Angle (degrees)</td>
                 <td><input type="text" name="cf_angle" value="30" /></td>
-            </tr>     
-            <tr>
-                <td>Length Multiplier - </td>
-                <td>
-                    <select name="length_multiplier">
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3</option>
-                        <option value="4">4</option>
-                        <option value="5">5</option>
-                        <option value="6">6</option>
-                        <option value="7">7</option>
-                        <option value="8">8</option>
-                        <option value="9">9</option>
-                        <option value="10">10</option>
-                    </select>
-                </td>
-            </tr>                
+            </tr>             
             <tr>
                 <td>Carbon Fiber width (meters)</td>
                 <td><input type="text" name="cf_width" value="0.005" /></td>
