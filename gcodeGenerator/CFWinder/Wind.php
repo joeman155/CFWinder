@@ -18,6 +18,8 @@ class Wind {
     private $wind_angle_per_pass;          // Degrees - the offset from the starting point
     private $cf_width;                     // Width of fiber in Meters
     
+    private $useful_tube_length;           // Length of tube not in Transition section
+    
     
     private $max_feed_rate = 14000;           // Maximum feed rate (mm/min)
     private $min_feed_rate = 500;            // Minimum feed rate - used at ends
@@ -30,6 +32,13 @@ class Wind {
     
     private $total_x_transition_distance;     // Total X distance travelled during transition moves (meters)
     private $total_y_transition_distance;     // Total Y "distance" travelled during transition moves (degrees)
+    
+    private $transition_arc_factor;           // This is ratio of radius of arc of transition to the radius of the mandrel
+    private $transition_radius;               // Radius of the curve. (meters)
+    private $transition_length_factor;        // How much we multiple the length (with no transition) to get length of tube that will accomodate transition
+    private $transition_feed_rate;            // Feed rate of the transition
+
+    
     
  
     /*
@@ -56,6 +65,10 @@ class Wind {
      */
 
     
+    /* Values in this array are 'picked out of the air' 
+     * I do however try to have greater distances as the angle increases
+     * I also want the TOTAL y angle at end of one pass to be multiple of 180 degrees.
+     */
     private $transition_schedule = [
             0 => ['feedrate' => 12000,
                   'angle'    => 30,
@@ -101,7 +114,7 @@ class Wind {
     public  $wind_time;                     // Time required to wind.
     
 
-    public function __construct($mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width,
+    public function __construct($useful_tube_length, $mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width,
                                 $length_multiplier, $start_x=0, $start_y=0) {
         $this->cf_angle = $cf_angle;
         $this->mandrelRadius = $mandrelRadius;
@@ -122,14 +135,66 @@ class Wind {
         $this->sig_figures = 4;
         $this->wind_time = 0;
         
+        $this->useful_tube_length = $useful_tube_length;        
+        
+        $this->transition_feed_rate = 4000;
+        $this->transition_length_factor = 1.2;   // Will make this configurable later.
+        //  $this->transition_radius = 180 * $this->mandrelRadius /(2 * (90 - $this->cf_angle));        
+        $this->transition_arc_factor = $this->calculateFFactor();
+        $this->transition_radius = $this->transition_arc_factor * $this->mandrelRadius;
         $this->total_x_transition_distance = $this->calculateTotalXTransitionDistance();
         $this->total_y_transition_distance = $this->calculateTotalYTransitionDistance();
         
+        
+        
+        
     }
     
-    public function getCFWeight() {
-             return $this->cf_weight_per_meter * $this->calculateCFLengthRequiredOneLayer();
+    
+    public function getTransitionArcFactor() {
+             return $this->transition_arc_factor;
     }    
+    
+    public function getTransitionRadius() {
+             return $this->transition_radius;
+    }  
+    
+    
+    /*
+     * The center point is the center of the arc(circle) that we must identify and code in G-Code
+     * There are two parts
+     * - x
+     * - y
+     * 
+     * The y = same as current y,
+     * X = radius of arc
+     * 
+     * We return the X component in meters
+     */
+    public function getTransitionXPoint() {
+        return $this->getTransitionRadius();
+    }
+    
+    public function getStraightLength() {
+        // return $this->getTubeLength() - $this->total_x_transition_distance;
+        // return $this->getUsefulTubeLength() - $this->total_x_transition_distance;
+        return $this->getUsefulTubeLength();
+    }
+    
+    
+    public function getTransitionLengthFactor() {
+             return $this->transition_length_factor;
+    }    
+    
+    public function getTransitionLength() {
+             return (pi()/180) * (90 - $this->cf_angle) * $this->getTransitionRadius();
+    }        
+    
+    public function getCFWeight() {
+             return $this->cf_weight_per_meter * $this->calculateActualCFLengthRequiredOneLayer();
+    }  
+    
+    
     
     public function getWindAnglePerPass() {
              return $this->wind_angle_per_pass;
@@ -151,10 +216,29 @@ class Wind {
         return 2 * $this->mandrelRadius;
     }
     
+    
+    /* 
+     * This is the entire tube length, including the transition sections
+     */
     public function getTubeLength() {
-        return ($this->length_multiplier * pi() * $this->wind_angle_per_pass / 180) * $this->mandrelRadius / tan(pi() * $this->cf_angle/180);
+        // return  ($this->length_multiplier * pi() * $this->wind_angle_per_pass / 180) * $this->mandrelRadius / tan(pi() * $this->cf_angle/180);
+        return  $this->useful_tube_length + $this->total_x_transition_distance;
     }
     
+   /* 
+     * This is tube without the transitions - the useful section.
+     */
+    public function getUsefulTubeLength() {
+        return  $this->useful_tube_length;
+    }
+
+    
+    public function calculateArcRadius() {
+        return $this->transition_arc_factor * $this->mandrelRadius;
+    }
+    
+    
+    /*
     public function calculateTrainSpeed($feedRate) {
         return sqrt($feedRate * $feedRate/(1 + pow($this->wind_angle_per_pass / (1000 * $this->getTubeLength()),2)));
     }
@@ -162,7 +246,7 @@ class Wind {
     public function calculateSpindleSpeed($feedRate) {
         return $this->calculateTrainSpeed($feedRate) * $this->wind_angle_per_pass/(1000 * $this->getTubeLength());
     }
-    
+    */
     
     /*
      * This is the distance we need to advance (meters) tangentially to ensure
@@ -182,20 +266,29 @@ class Wind {
 
     
     public function calculateSurfaceArea() {
-        return pi() * 2 * $this->mandrelRadius * $this->getTubeLength();
+        return pi() * 2 * $this->mandrelRadius * $this->getUsefulTubeLength();  // Changed to useful length
     }
     
     /*
      * This is length of CF for one pass.
      * NOTE, we need go X times in one direction and X times in the other direction. So...one could 
      *       say we actually do two layers in ONE pass.
+     * 
+     * NOTE: This does NOT take into account the transitional areas, where CF is unfortunately wasted
      */
     public function calculateCFLengthRequiredOneLayer() {
         return 2 * $this->calculateSurfaceArea()/ $this->cf_width;
     }
     
+    public function calculateActualCFLengthRequiredOneLayer() {
+        // PER PASS
+        $pass_length = 2 * $this->getTransitionLength() + $this->getStraightLength(); 
+        
+        return $this->calculatePassesToCoverMandrel() * $pass_length * 2;
+    }    
+    
     public function calculateCFMetersOnePass() {
-        return $this->getTubeLength() / cos(pi() * $this->cf_angle/180);
+        return $this->getUsefulTubeLength() / cos(pi() * $this->cf_angle/180);  // Changed to Useful Tube Length
     }
     
     /* 
@@ -227,7 +320,7 @@ class Wind {
      * Given the X travel to take place, we want to calculate how far to rotate the Spindle (y-axis)
      * 
      */
-    public function calculateYTravelDdegrees($y_travel_distance) {
+    public function calculateYTravelDegrees($y_travel_distance) {
        $y_travel = (180/pi()) * ($y_travel_distance / $this->mandrelRadius);
        
        return $y_travel;    
@@ -243,6 +336,7 @@ class Wind {
         return $this->wind_time;
     }
 
+    /*
     public function calculateTotalXTransitionDistance() {
        $total_x_travel = 0;
        foreach ($this->transition_schedule as $key => $value) {           
@@ -256,11 +350,56 @@ class Wind {
         // We multiple by two because we have TWO transitions per pass.
         return 2 * $total_x_travel;
     }
+     *
+     */
     
+    public function calculateTotalXTransitionDistance() {
+       $d = $this->transition_radius * (1 - sin(pi() * $this->cf_angle/180));
+       
+        // We multiple by two because we have TWO transitions per pass.
+        return 2 * $d;
+    }    
+    
+    
+    public function calculateFFactor() {
+        // We split this into to ... numerator and demoninator
+        
+        $numerator = ($this->mandrelRadius * $this->wind_angle_per_pass * pi()/(180 * Tan(pi() * $this->cf_angle/180))) - $this->getUsefulTubeLength();   // Changed to Useful Tube Length
+        
+//        print "Mandrel Radius: " . $this->mandrelRadius . "<br/>";
+//        print "wind_angle_per_pass " . $this->wind_angle_per_pass . "<br />";
+//        print "cf angle = " . $this->cf_angle . "<br />";
+//        print "LEngth: " . $this->getTubeLength() . "<br />";
+        
+               
+//        print "Numerator: " . $numerator . "<br />";
+        $demoninator =  (cos(pi() * $this->cf_angle/180)/tan(pi()*$this->cf_angle/180) + sin(pi()*$this->cf_angle/180) - 1);
+        
+        
+        $mult = 1 / (2 * $this->mandrelRadius );
+//        print "Demoninator: " . $demoninator . "<br />";
+        
+//        print "mult: " . $mult . "<br />";
+        
+        return $mult * $numerator/$demoninator;
+    }
     
     /* 
      * Returns the total total # of degrees for each pass from both transitions(one at each end)
      */
+    public function calculateTotalYTransitionDistance() {
+        
+        
+       $d_linear = $this->transition_radius * cos(pi() * $this->cf_angle/180);
+       
+       $d_angle = (180/pi()) * $d_linear/$this->mandrelRadius;
+       
+        // We multiple by two because we have TWO transitions per pass.
+        return 2 * $d_angle;
+        
+    }    
+    
+    /*
     public function calculateTotalYTransitionDistance() {
        $total_y_travel = 0;
        foreach ($this->transition_schedule as $key => $value) {           
@@ -277,6 +416,7 @@ class Wind {
         // We multiple by two because we have TWO transitions per pass.
         return 2 * $y_angle;
     }    
+     */
     
     public function getTotalXTransitionDistance() {
         return $this->total_x_transition_distance;
@@ -305,6 +445,16 @@ class Wind {
         }
         
         
+        // Do the Transition
+        $transition_direction = -1 * $direction;  // Direction of the Arc
+        $x_center_pos = $this->current_x + $this->transition_radius;
+        $y_center_pos = $this->current_y;
+        $y_travel_distance = $this->transition_radius * cos($this->cf_angle * (pi()/180));
+        $x_travel = $direction * $this->transition_radius * (1 - sin($this->cf_angle * (pi()/180)));
+        $y_travel = $this->calculateYTravelDegrees($y_travel_distance);
+        $this->generateTransitionCode($transition_direction, $x_center_pos, $y_center_pos, $x_travel, $y_travel, $this->transition_feed_rate);
+        
+        /*
         foreach (array_reverse($this->transition_schedule) as $key => $value) {
            // print "Processing Transition: " . $value['angle'] . "<br />";
             $cf_angle = $value['angle'];
@@ -313,40 +463,33 @@ class Wind {
             $x_travel = $total_travel * cos($cf_angle * pi()/180);
             $y_travel = $total_travel * sin($cf_angle * pi()/180);
             
-            $y_travel = abs($this->calculateYTravelDdegrees($y_travel));
+            $y_travel = abs($this->calculateYTravelDegrees($y_travel));
           //   print "X_travel, cf_angle, y_angle = " . round($x_travel,4)*1000 . ", " . $cf_angle . ", " . round($y_travel,1) . "<br />";
             $this->generateXYCode($x_travel, $y_travel, $feedrate);
         }
-        
-        /*
-        # Min speed
-        $x_travel = $direction * $this->min_feed_rate_distance;
-        $feedrate = $this->min_feed_rate;
-        $y_travel = $this->calculateYTravel($x_travel);
-        $this->generateXYCode($x_travel, $y_travel, $feedrate);
-        # print "X_Travel: " . $x_travel . ", Feedrate: " . $feedrate . ", Y_Travel: " . $y_travel . "<br />";
-        
-        
-        # Transition Speed
-        $x_travel = $direction * $this->transition_feed_rate_distance;
-        $feedrate = $this->transition_feed_rate;
-        $y_travel = $this->calculateYTravel($x_travel);
-        $this->generateXYCode($x_travel, $y_travel, $feedrate);
-        // print "X_Travel: " . $x_travel . ", Feedrate: " . $feedrate . ", Y_Travel: " . $y_travel . "<br />";
-         
-         */
-        
-        
+          */     
         
         
         # Max Speed
-        $x_travel = $direction * ($this->getTubeLength() - $this->total_x_transition_distance);
+        $x_travel = $direction * ($this->getUsefulTubeLength() - $this->total_x_transition_distance);   // Changed to Useful Tube Length
         $feedrate = $this->max_feed_rate;
         $y_travel = $this->calculateYTravel($x_travel);
         $this->generateXYCode($x_travel, $y_travel, $feedrate);
         // print "X_Travel: " . $x_travel . ", Feedrate: " . $feedrate . ", Y_Travel: " . $y_travel . "<br />";
         
 
+        
+        // Do the Transition
+        $transition_direction = 1 * $direction;  // Direction of the Arc
+        $x_center_pos = $this->current_x + $this->transition_radius;
+        $y_center_pos = $this->current_y;
+        $y_travel_distance = $this->transition_radius * cos($this->cf_angle * (pi()/180));
+        $x_travel = $direction * $this->transition_radius * (1 - sin($this->cf_angle * (pi()/180)));
+        $y_travel = $this->calculateYTravelDegrees($y_travel_distance);
+        $this->generateTransitionCode($transition_direction, $x_center_pos, $y_center_pos, $x_travel, $y_travel, $this->transition_feed_rate);
+
+        
+        /*
         foreach ($this->transition_schedule as $key => $value) {
            // print "Processing Transition: " . $value['angle'] . "<br />";
             $cf_angle = $value['angle'];
@@ -355,30 +498,13 @@ class Wind {
             $x_travel = $total_travel * cos($cf_angle * pi()/180);
             $y_travel = abs($total_travel * sin($cf_angle * pi()/180));
             
-            $y_travel = abs($this->calculateYTravelDdegrees($y_travel));
+            $y_travel = abs($this->calculateYTravelDegrees($y_travel));
            //  print "X_travel, cf_angle, y_angle = " . round($x_travel,4)*1000 . ", " . $cf_angle . ", " . round($y_travel,1) . "<br />";
             $this->generateXYCode($x_travel, $y_travel, $feedrate);
         }  
-         
-  
-        
-        /*
-        # Transition Speed
-        $x_travel = $direction * $this->transition_feed_rate_distance;
-        $feedrate = $this->transition_feed_rate;
-        $y_travel = $this->calculateYTravel($x_travel);
-        $this->generateXYCode($x_travel, $y_travel, $feedrate);
-        // print "X_Travel: " . $x_travel . ", Feedrate: " . $feedrate . ", Y_Travel: " . $y_travel . "<br />";
-        
-        # Min Speed
-        $x_travel = $direction * $this->min_feed_rate_distance;
-        $y_travel = $this->calculateYTravel($x_travel);
-        $feedrate = $this->min_feed_rate;
-        $this->generateXYCode($x_travel, $y_travel, $feedrate);
-        // print "X_Travel: " . $x_travel . ", Feedrate: " . $feedrate . ", Y_Travel: " . $y_travel . "<br />";
+         *
          */
-        
-        
+         
         
     }
     
@@ -388,6 +514,27 @@ class Wind {
         return $x_speed;
     }
     
+    
+    /*
+     * Generate the code for the Arc
+     * 
+     */
+    public function generateTransitionCode($transition_direction, $x_center_pos, $y_center_pos, $x_travel, $y_travel, $feedrate) {
+        
+        $this->current_x = $this->current_x + $x_travel;
+        $this->current_y = $this->current_y + $y_travel;
+        
+        // Work out what operation we are using based on CW or CCW motion
+        if ($transition_direction == -1) {
+            $g_code_oper = "G3";
+        } else {
+            $g_code_oper = "G2";
+        }
+        
+        $code_text = $g_code_oper . " X" . 1000 * round($this->current_x, $this->sig_figures) . " Y" . round($this->current_y, $this->sig_figures) . " J" . 1000 * round($x_center_pos, $this->sig_figures) . " J" . round($y_center_pos, $this->sig_figures) . " F" . $feedrate;
+        
+        array_push($this->gcodes, $code_text);
+    }
     
     /*
      * Calculate the Tangential velocity

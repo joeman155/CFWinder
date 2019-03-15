@@ -7,6 +7,8 @@ and open the template in the editor.
 <?php
 require "Wind.php";
 
+
+$useful_tube_length  = $_REQUEST['useful_tube_length'];
 $mandrelRadius       = $_REQUEST['mandrelRadius'];
 $cf_width            = $_REQUEST['cf_width'];
 $cf_angle            = $_REQUEST['cf_angle'];
@@ -14,7 +16,7 @@ $length_multiplier   = $_REQUEST['length_multiplier'];
 $wind_angle_per_pass = $_REQUEST['wind_angle_per_pass'];
 $start_x             = $_REQUEST['start_x'];
     
-$wind = new Wind($mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width, $length_multiplier, $start_x);
+$wind = new Wind($useful_tube_length, $mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width, $length_multiplier, $start_x);
 
 $wind->generateGCodes();
 ?>
@@ -34,6 +36,10 @@ $wind->generateGCodes();
                     Value
                 </th>
             </tr>
+            <tr>
+                <td>Useful Tube Length</td>
+                <td><?=round($wind->getUsefulTubeLength(), $wind->sig_figures)?> meters</td>
+            </tr>                
             <tr>
                 <td>Mandrel Circumference</td>
                 <td><?=round($wind->getMandrelCircumference(), $wind->sig_figures)?> meters</td>
@@ -64,7 +70,7 @@ $wind->generateGCodes();
                 </th>
             </tr>
             <tr>
-                <td>Calculated Tube Length</td>
+                <td>Total Tube Length</td>
                 <td><?=round($wind->getTubeLength(), $wind->sig_figures)?> meters</td>
             </tr>
             <tr>
@@ -80,8 +86,8 @@ $wind->generateGCodes();
                 <td><?=round($wind->actualCFAdvancementAngle(), $wind->sig_figures)?></td>
             </tr>
             <tr>
-                <td>Meters of CF required for single layer</td>
-                <td><?=round($wind->calculateCFLengthRequiredOneLayer(), $wind->sig_figures)?></td>
+                <td>Actual Meters of CF required for single layer</td>
+                <td><?=round($wind->calculateActualCFLengthRequiredOneLayer(), $wind->sig_figures)?></td>
             </tr>
             <tr>
                 <td># of Passes required to make one layer
@@ -99,7 +105,28 @@ $wind->generateGCodes();
             <tr>
                 <td>Transition Y distance (degrees)</td>
                 <td><?=round($wind->getTotalYTransitionDistance(), $wind->sig_figures)?> degrees</td>
-            </tr>                  
+            </tr>       
+            <tr>
+                <td>Transition Length Factor (dimensionless)</td>
+                <td><?=round($wind->getTransitionLengthFactor(), $wind->sig_figures)?></td>
+            </tr>      
+            <tr>
+                <td>Transition Arc Factor (dimensionless)</td>
+                <td><?=round($wind->getTransitionArcFactor(), $wind->sig_figures)?></td>
+            </tr>    
+            <tr>
+                <td>Transition Arc Length (meters)</td>
+                <td><?=round($wind->getTransitionLength(), $wind->sig_figures)?> meters</td>
+            </tr>             
+            <tr>
+                <td>Transition Radius (meters)</td>
+                <td><?=round($wind->getTransitionRadius(), $wind->sig_figures)?> meters</td>
+            </tr>            
+            <tr>
+                <td>Straight Section - X Distance (meters)</td>
+                <td><?=round($wind->getStraightLength(), $wind->sig_figures)?> meters</td>
+            </tr>              
+            
             <tr>
                 <td>Time to wind one layer</td>
                 <td><?=round($wind->getTime(), $wind->sig_figures)?> seconds (<?=round($wind->getTime()/60, 1)?> minutes)</td>

@@ -30,6 +30,15 @@ USE AT YOUR OWN RISK.
                         <input type="text" name="mandrelRadius" value="0.0381" />
                     </td>
                 </tr>
+                </tr>
+                <tr>
+                    <td>
+                        Useful Tube Length (meters)
+                    </td>
+                    <td>
+                        <input type="text" name="useful_tube_length" value="0.190" />
+                    </td>
+                </tr>                
             <tr>
                 <td>Carbon Fiber Laydown Angle (degrees)</td>
                 <td><input type="text" name="cf_angle" value="30" /></td>
