@@ -103,7 +103,7 @@ $wind->generateGCodes();
                 <td><?=round($wind->getTotalXTransitionDistance(), $wind->sig_figures)?> meters</td>
             </tr>                 
             <tr>
-                <td>Transition Y distance (degrees)</td>
+                <td>Transition S distance (degrees)</td>
                 <td><?=round($wind->getTotalYTransitionDistance(), $wind->sig_figures)?> degrees</td>
             </tr>       
             <tr>
