@@ -18,6 +18,8 @@ class Wind {
     private $cf_width;                        // Width of fiber in Meters
     private $extra_spindle_turn;              // Extra angle we turn the tube when we get to the end.
     private $useful_tube_length;              // Length of tube not in Transition section
+    private $straight_feed_rate;              // Rate of laydown of CF during straight sections.
+    private $spindle_direction;               // Direction the spindle spins. Clockwise is default = +1
     
     // Self-imposed limits
     private $max_feed_rate = 14000;           // Maximum feed rate (mm/min)
@@ -120,7 +122,8 @@ class Wind {
     
 
     public function __construct($useful_tube_length, $mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width,
-                                $extra_spindle_turn, $start_x=0, $start_s=0) {
+                                $extra_spindle_turn, $transition_feed_rate, $straight_feed_rate, $spindle_direction,
+                                $start_x=0, $start_s=0) {
         
         
         
@@ -129,6 +132,9 @@ class Wind {
         $this->wind_angle_per_pass = $wind_angle_per_pass;
         $this->cf_width            = $cf_width;
         $this->extra_spindle_turn  = $extra_spindle_turn;
+        $this->straight_feed_rate  = $straight_feed_rate;
+        $this->spindle_direction   = $spindle_direction;
+        
         
         $this->start_x = $start_x;
         $this->start_s = $start_s;
@@ -145,7 +151,7 @@ class Wind {
         
         $this->useful_tube_length = $useful_tube_length;        
         
-        $this->transition_feed_rate = 4000;
+        $this->transition_feed_rate = $transition_feed_rate;
         $this->transition_arc_factor = $this->calculateFFactor();
         $this->transition_radius = $this->transition_arc_factor * $this->mandrelRadius;
         $this->total_x_transition_distance = $this->calculateTotalXTransitionDistance();
@@ -155,6 +161,18 @@ class Wind {
    
     
     
+    
+    public function getStraightFeedRate() {
+        return $this->straight_feed_rate;
+    }
+
+    public function getTransitionFeedRate() {
+        return $this->transition_feed_rate;
+    }
+    
+    public function getSpindleDirection() {
+        return $this->spindle_direction;
+    }
     
     public function getTransitionArcFactor() {
              return $this->transition_arc_factor;
@@ -185,7 +203,9 @@ class Wind {
     }
     
 
-    
+    /*
+     * Returns length of transition in meters
+     */
     public function getTransitionLength() {
              return (pi()/180) * (90 - $this->cf_angle) * $this->getTransitionRadius();
     }        
@@ -271,12 +291,45 @@ class Wind {
     
     public function calculateActualCFLengthRequiredOneLayer() {
         // PER PASS
+        /*
         $pass_length = 2 * $this->getTransitionLength() + $this->getStraightLength(); 
         
-        return $this->calculatePassesToCoverMandrel() * $pass_length * 2;
+        
+        if ($this->extra_spindle_turn > 0) {
+            $extra_spindle_turn_distance = (180/pi()) * $this->extra_spindle_turn * $this->mandrelRadius;
+        } else {
+            $extra_spindle_turn_distance = 0;
+        }
+        
+        return $this->calculatePassesToCoverMandrel() * ($pass_length * 2 + $extra_spindle_turn_distance);
+         *
+         */
+        
+        
+        // We multiple by 2 (two) at beginning because we actually do TWO layers...one from left and one from right.
+        return 2 * $this->calculatePassesToCoverMandrel() * $this->calculateCFMetersOnePass();
     }    
-    
+
+
+    /* 
+     * This calcualtes CF for just one pass from left to right. It includes transitions 
+     */
     public function calculateCFMetersOnePass() {
+        
+        if ($this->extra_spindle_turn > 0) {
+            $extra_spindle_turn_distance = (pi()/180) * $this->extra_spindle_turn * $this->mandrelRadius;
+        } else {
+            $extra_spindle_turn_distance = 0;
+        }
+        
+        return 2 * $this->getTransitionLength() + $this->getStraightLength() + $extra_spindle_turn_distance; 
+    }
+    
+    
+    /* 
+     * This calcualtes CF for just the straight section (not including transition)
+     */
+    public function calculateCFMetersOnePassStraight() {
         return $this->getUsefulTubeLength() / cos(pi() * $this->cf_angle/180);  // Changed to Useful Tube Length
     }
     
@@ -289,7 +342,7 @@ class Wind {
      * 
      */
     public function calculatePassesToCoverMandrel() {
-        return ceil(($this->calculateCFLengthRequiredOneLayer()/2) / $this->calculateCFMetersOnePass());
+        return ceil(($this->calculateCFLengthRequiredOneLayer()/2) / $this->calculateCFMetersOnePassStraight());
     }
     
     /*
@@ -408,7 +461,7 @@ class Wind {
 
         
         // Do the Transition
-        $transition_direction = -1 * $direction;  // Direction of the Arc
+        $transition_direction = -1 * $direction * $this->getSpindleDirection();  // Direction of the Arc
         $x_center_pos = $direction * $this->getTransitionXPoint();
         $s_center_pos = $this->calculateYTravelDegrees(0);
         $y_travel_distance = $this->transition_radius * cos($this->cf_angle * (pi()/180));
@@ -420,7 +473,7 @@ class Wind {
         
         # Max Speed
         $x_travel = $direction * ($this->getUsefulTubeLength() - $this->total_x_transition_distance);   // Changed to Useful Tube Length
-        $feedrate = $this->max_feed_rate;
+        $feedrate = $this->straight_feed_rate;
         $s_travel = $this->calculateYTravel($x_travel);
         $this->generateXYCode($x_travel, $s_travel, $feedrate);
         // print "X_Travel: " . $x_travel . ", Feedrate: " . $feedrate . ", Y_Travel: " . $y_travel . "<br />";
@@ -428,7 +481,7 @@ class Wind {
 
           
         // Do the Transition
-        $transition_direction = 1 * $direction;  // Direction of the Arc
+        $transition_direction = 1 * $direction * $this->getSpindleDirection();  // Direction of the Arc
         // The Relative Center Pos are different for the second transition in each pass. We are starting from the other end.
         $x_center_pos = -$direction * $this->transition_radius * sin($this->cf_angle * pi()/180);   // This is relative to CURRENT point
         $s_center_pos = $this->calculateYTravelDegrees($this->transition_radius * cos($this->cf_angle * pi()/180));                 // This is relative to CURRENT point.
@@ -461,7 +514,7 @@ class Wind {
      * Given a y pos (degrees), output the appropriate value suitable for the Tube Winder (mm)
      */
     public function generateYPosValue($ypos) {
-       return 1000 * round($ypos * (pi()/180) * $this->mandrelRadius, $this->sig_figures);    
+       return $this->getSpindleDirection() * 1000 * round($ypos * (pi()/180) * $this->mandrelRadius, $this->sig_figures);    
         
     }
     
@@ -493,6 +546,13 @@ class Wind {
         $code_text = $g_code_oper . " X" . $this->generateXPosValue($this->current_x) . " Y" . $this->generateYPosValue($this->current_s) . " I" . $this->generateXPosValue($x_center_pos) . " J" . $this->generateYPosValue($s_center_pos) . " F" . $feedrate;
         
         array_push($this->gcodes, $code_text);
+        
+        // Calculate the time to do this maneuver
+        $wind_time = (1000 * $this->getTransitionLength()) / ($feedrate/60);
+        
+        // print "trWind Time: " . $wind_time . "<br/>";
+        // Add to the total time 
+        $this->addTime($wind_time);        
     }
     
     /*
@@ -539,6 +599,7 @@ class Wind {
         $wind_time = $s_travel / ($feedrate/60);
         
         // Add to the total time 
+        // print "yWind Time: " . $wind_time . "<br/>";
         $this->addTime($wind_time);
         
         $code_text = "G1 F" . $feedrate . " Y" . $this->generateYPosValue($this->current_s);

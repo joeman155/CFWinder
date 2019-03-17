@@ -16,8 +16,12 @@ $length_multiplier   = $_REQUEST['length_multiplier'];
 $wind_angle_per_pass = $_REQUEST['wind_angle_per_pass'];
 $extra_spindle_turn  = $_REQUEST['extra_spindle_turn'];
 $start_x             = $_REQUEST['start_x'];
+$transition_feed_rate  = $_REQUEST['transition_feed_rate'];
+$straight_feed_rate  = $_REQUEST['straight_feed_rate'];
+$spindle_direction   = $_REQUEST['spindle_direction'];
     
-$wind = new Wind($useful_tube_length, $mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width, $extra_spindle_turn, $start_x);
+$wind = new Wind($useful_tube_length, $mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width, $extra_spindle_turn, 
+                 $transition_feed_rate, $straight_feed_rate, $spindle_direction, $start_x);
 
 $wind->generateGCodes();
 ?>
@@ -27,7 +31,7 @@ $wind->generateGCodes();
         <title>CF Winder G-Code Generator</title>
     </head>
     <body>
-        <h1> Inputted Parameters</h1>
+        <h1> Inputed Parameters</h1>
         <table>
             <tr>
                 <th>
@@ -55,8 +59,20 @@ $wind->generateGCodes();
             </tr>
             <tr>
                 <td>Wind angle per pass (offset from the starting angle)</td>
-                <td><?=$wind->getWindAnglePerPass()?> meters</td>
+                <td><?=$wind->getWindAnglePerPass()?> degrees</td>
+            </tr>  
+            <tr>
+                <td>Spindle Direction)</td>
+                <td><?=$wind->getSpindleDirection()?> (+1 = CW, -1 = CCW)</td>
             </tr>                 
+            <tr>
+                <td>Transition Feed Rate</td>
+                <td><?=round($wind->getTransitionFeedRate() , $wind->sig_figures)?></td>
+            </tr>            
+            <tr>
+                <td>Straight Feed Rate</td>
+                <td><?=round($wind->getStraightFeedRate() , $wind->sig_figures)?></td>
+            </tr>              
         </table>
         
         
@@ -85,7 +101,11 @@ $wind->generateGCodes();
             <tr>
                 <td>Actual Advance ANGLE of Mandrel after integer rotations</td>
                 <td><?=round($wind->actualCFAdvancementAngle(), $wind->sig_figures)?></td>
-            </tr>
+            </tr>               
+            <tr>
+                <td>Length of CF required for ONE pass (left to right only)</td>
+                <td><?=round($wind->calculateCFMetersOnePass(), $wind->sig_figures)?> meters</td>
+            </tr>            
             <tr>
                 <td>Actual Meters of CF required for single layer</td>
                 <td><?=round($wind->calculateActualCFLengthRequiredOneLayer(), $wind->sig_figures)?></td>

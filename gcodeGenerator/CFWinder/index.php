@@ -48,6 +48,23 @@ USE AT YOUR OWN RISK.
                 <td><input type="text" name="extra_spindle_turn" value="180" /></td>
             </tr>                
             <tr>
+                <td>Straight Feed Rate (mm/min)</td>
+                <td><input type="text" name="straight_feed_rate" value="3000" /></td>
+            </tr>
+            <tr>
+                <td>Transition Feed Rate (mm/min)</td>
+                <td><input type="text" name="transition_feed_rate" value="3000" /></td>
+            </tr>         
+            <tr>
+                <td>Spindle Rotation Direction</td>
+                <td>
+                    <select  name="spindle_direction">
+                        <option value="1">Clockwise</option>
+                        <option value="-1">Anti-Clockwise</option>
+                    </select>
+                </td>
+            </tr>              
+            <tr>
                 <td>Carbon Fiber width (meters)</td>
                 <td><input type="text" name="cf_width" value="0.005" /></td>
             </tr>
