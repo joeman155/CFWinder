@@ -16,6 +16,7 @@ class Wind {
     private $cf_angle;                        // Angle at which we wind the Carbon Fiber - Degrees
     private $wind_angle_per_pass;             // Degrees - the offset from the starting point
     private $cf_width;                        // Width of fiber in Meters
+    private $extra_spindle_turn;              // Extra angle we turn the tube when we get to the end.
     private $useful_tube_length;              // Length of tube not in Transition section
     
     // Self-imposed limits
@@ -119,7 +120,7 @@ class Wind {
     
 
     public function __construct($useful_tube_length, $mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width,
-                                $start_x=0, $start_s=0) {
+                                $extra_spindle_turn, $start_x=0, $start_s=0) {
         
         
         
@@ -127,6 +128,7 @@ class Wind {
         $this->mandrelRadius       = $mandrelRadius;
         $this->wind_angle_per_pass = $wind_angle_per_pass;
         $this->cf_width            = $cf_width;
+        $this->extra_spindle_turn  = $extra_spindle_turn;
         
         $this->start_x = $start_x;
         $this->start_s = $start_s;
@@ -388,17 +390,26 @@ class Wind {
             $direction = +1;
         }
         
+
+
         // Only advance if on 3,5,7... pass. i.e. not on first pass or even pass
+        // We use transision feed rates.
         if ($this->current_pass > 1 && $this->current_pass % 2 == 1) {
-            $feedrate = $this->min_feed_rate;
-            $y_travel = $this->actualCFAdvancementAngle();
+            $feedrate = $this->transition_feed_rate;
+            $s_travel = $this->actualCFAdvancementAngle() + $this->extra_spindle_turn;
             $this->generateYCode($s_travel, $feedrate);
+        } elseif ($this->current_pass > 1 && $this->current_pass % 2 == 0 && $this->extra_spindle_turn > 0) {
+            // Add the SPIN at the end (if one is requested). Purpose of this is to try and maintain tension in the CF.
+            $feedrate = $this->transition_feed_rate;
+            $s_travel = $this->extra_spindle_turn;
+            $this->generateYCode($s_travel, $feedrate);            
         }
         
+
         
         // Do the Transition
         $transition_direction = -1 * $direction;  // Direction of the Arc
-        $x_center_pos = $this->getTransitionXPoint();
+        $x_center_pos = $direction * $this->getTransitionXPoint();
         $s_center_pos = $this->calculateYTravelDegrees(0);
         $y_travel_distance = $this->transition_radius * cos($this->cf_angle * (pi()/180));
         $x_travel = $direction * $this->transition_radius * (1 - sin($this->cf_angle * (pi()/180)));
@@ -415,7 +426,7 @@ class Wind {
         // print "X_Travel: " . $x_travel . ", Feedrate: " . $feedrate . ", Y_Travel: " . $y_travel . "<br />";
         
 
-        
+          
         // Do the Transition
         $transition_direction = 1 * $direction;  // Direction of the Arc
         // The Relative Center Pos are different for the second transition in each pass. We are starting from the other end.
@@ -425,6 +436,7 @@ class Wind {
         $x_travel = $direction * $this->transition_radius * (1 - sin($this->cf_angle * (pi()/180)));
         $s_travel = $this->calculateYTravelDegrees($y_travel_distance);
         $this->generateTransitionCode($transition_direction, $x_center_pos, $s_center_pos, $x_travel, $s_travel, $this->transition_feed_rate);
+        
         
     }
     
@@ -473,12 +485,12 @@ class Wind {
         
         // Work out what operation we are using based on CW or CCW motion
         if ($transition_direction == -1) {
-            $g_code_oper = "G3";
-        } else {
             $g_code_oper = "G2";
+        } else {
+            $g_code_oper = "G3";
         }
         
-        $code_text = $g_code_oper . " X" . $this->generateXPosValue($this->current_x) . " Y" . round($this->current_s, $this->sig_figures) . " I" . $this->generateXPosValue($x_center_pos) . " J" . round($s_center_pos, $this->sig_figures) . " F" . $feedrate;
+        $code_text = $g_code_oper . " X" . $this->generateXPosValue($this->current_x) . " Y" . $this->generateYPosValue($this->current_s) . " I" . $this->generateXPosValue($x_center_pos) . " J" . $this->generateYPosValue($s_center_pos) . " F" . $feedrate;
         
         array_push($this->gcodes, $code_text);
     }
@@ -513,7 +525,7 @@ class Wind {
         // Add to the total time 
         $this->addTime($wind_time);
         
-        $code_text = "G1 F" . $feedrate . " X" . $this->generateXPosValue($this->current_x) . " Y" . round($this->current_s, $this->sig_figures);
+        $code_text = "G1 F" . $feedrate . " X" . $this->generateXPosValue($this->current_x) . " Y" . $this->generateYPosValue($this->current_s);
         array_push($this->gcodes, $code_text);
     }
     
@@ -522,13 +534,14 @@ class Wind {
         $this->current_s = $this->current_s + $s_travel;
 
         // Calculate the time to do this maneuver
-        $y_travel_meters = (pi()/180) * $s_travel * $this->mandrelRadius;
-        $wind_time = abs($y_travel_meters) / $this->calculateYSpeed($feedrate, $s_travel);
+        // $y_travel_meters = (pi()/180) * $s_travel * $this->mandrelRadius;
+        // $wind_time = abs($y_travel_meters) / $this->calculateYSpeed($feedrate, $s_travel);
+        $wind_time = $s_travel / ($feedrate/60);
         
         // Add to the total time 
         $this->addTime($wind_time);
         
-        $code_text = "G1 F" . $feedrate . " Y" . round($this->current_s, $this->sig_figures);
+        $code_text = "G1 F" . $feedrate . " Y" . $this->generateYPosValue($this->current_s);
         array_push($this->gcodes, $code_text);
     }    
     

@@ -14,9 +14,10 @@ $cf_width            = $_REQUEST['cf_width'];
 $cf_angle            = $_REQUEST['cf_angle'];
 $length_multiplier   = $_REQUEST['length_multiplier'];
 $wind_angle_per_pass = $_REQUEST['wind_angle_per_pass'];
+$extra_spindle_turn  = $_REQUEST['extra_spindle_turn'];
 $start_x             = $_REQUEST['start_x'];
     
-$wind = new Wind($useful_tube_length, $mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width, $start_x);
+$wind = new Wind($useful_tube_length, $mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width, $extra_spindle_turn, $start_x);
 
 $wind->generateGCodes();
 ?>
@@ -77,7 +78,7 @@ $wind->generateGCodes();
                 <td>Ideal Advance of CF Thread after integer rotations</td>
                 <td><?=round($wind->idealCFAdvancement(), $wind->sig_figures)?></td>
             </tr>
-            <tr>
+            <tr> 
                 <td>Actual Advance of CF Thread after integer rotations</td>
                 <td><?=round($wind->actualCFAdvancement(), $wind->sig_figures)?></td>
             </tr>
@@ -105,11 +106,7 @@ $wind->generateGCodes();
             <tr>
                 <td>Transition S distance (degrees)</td>
                 <td><?=round($wind->getTotalYTransitionDistance(), $wind->sig_figures)?> degrees</td>
-            </tr>       
-            <tr>
-                <td>Transition Length Factor (dimensionless)</td>
-                <td><?=round($wind->getTransitionLengthFactor(), $wind->sig_figures)?></td>
-            </tr>      
+            </tr>           
             <tr>
                 <td>Transition Arc Factor (dimensionless)</td>
                 <td><?=round($wind->getTransitionArcFactor(), $wind->sig_figures)?></td>

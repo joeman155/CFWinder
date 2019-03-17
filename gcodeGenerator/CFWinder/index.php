@@ -5,7 +5,7 @@ License to Joseph Turner
 GPL - FREE IN EVERY SENSE. 
 
 USE AT YOUR OWN RISK.
--->
+--> 
 <html>
     <head>
         <meta charset="UTF-8">
@@ -42,7 +42,11 @@ USE AT YOUR OWN RISK.
             <tr>
                 <td>Carbon Fiber Laydown Angle (degrees)</td>
                 <td><input type="text" name="cf_angle" value="30" /></td>
-            </tr>             
+            </tr>          
+            <tr>
+                <td>Additional Wind each end (degrees)</td>
+                <td><input type="text" name="extra_spindle_turn" value="180" /></td>
+            </tr>                
             <tr>
                 <td>Carbon Fiber width (meters)</td>
                 <td><input type="text" name="cf_width" value="0.005" /></td>
