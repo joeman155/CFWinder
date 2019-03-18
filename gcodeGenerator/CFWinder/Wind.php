@@ -455,7 +455,7 @@ class Wind {
             // Add the SPIN at the end (if one is requested). Purpose of this is to try and maintain tension in the CF.
             $feedrate = $this->transition_feed_rate;
             $s_travel = $this->extra_spindle_turn;
-            $this->generateYCode($s_travel, $feedrate);            
+            $this->generateYCode($s_travel, $feedrate); 
         }
         
 
@@ -514,6 +514,7 @@ class Wind {
      * Given a y pos (degrees), output the appropriate value suitable for the Tube Winder (mm)
      */
     public function generateYPosValue($ypos) {
+
        return $this->getSpindleDirection() * 1000 * round($ypos * (pi()/180) * $this->mandrelRadius, $this->sig_figures);    
         
     }
