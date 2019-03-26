@@ -19,8 +19,10 @@ $start_x             = $_REQUEST['start_x'];
 $transition_feed_rate  = $_REQUEST['transition_feed_rate'];
 $straight_feed_rate  = $_REQUEST['straight_feed_rate'];
 $spindle_direction   = $_REQUEST['spindle_direction'];
+$eyeletDistance      = $_REQUEST['eyeletDistance'];
+
     
-$wind = new Wind($useful_tube_length, $mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width, $extra_spindle_turn, 
+$wind = new Wind($useful_tube_length, $mandrelRadius, $eyeletDistance, $cf_angle, $wind_angle_per_pass, $cf_width, $extra_spindle_turn, 
                  $transition_feed_rate, $straight_feed_rate, $spindle_direction, $start_x);
 
 $wind->generateGCodes();
@@ -44,15 +46,19 @@ $wind->generateGCodes();
             <tr>
                 <td>Useful Tube Length</td>
                 <td><?=round($wind->getUsefulTubeLength(), $wind->sig_figures)?> meters</td>
-            </tr>                
+            </tr>     
             <tr>
-                <td>Mandrel Circumference</td>
-                <td><?=round($wind->getMandrelCircumference(), $wind->sig_figures)?> meters</td>
+                <td>Mandrel Radius</td>
+                <td><?=round($wind->getMandrelRadius(), $wind->sig_figures)?> meters</td>
+            </tr>              
+            <tr>
+                <td>Eyelet Distance</td>
+                <td><?=round($wind->getEyeletDistance(), $wind->sig_figures)?> meters</td>
             </tr>          
             <tr>
                 <td>Carbon Fiber Laydown Angle</td>
                 <td><?=$wind->getCFAngle()?> degrees</td>
-            </tr>     
+            </tr> 
             <tr>
                 <td>Carbon Fiber width</td>
                 <td><?=$wind->getCFWidth()?> meters</td>
@@ -101,7 +107,12 @@ $wind->generateGCodes();
             <tr>
                 <td>Actual Advance ANGLE of Mandrel after integer rotations</td>
                 <td><?=round($wind->actualCFAdvancementAngle(), $wind->sig_figures)?></td>
-            </tr>               
+            </tr>    
+            
+            <tr>
+                <td>Calculated X Travel distance Ratio</td>
+                <td><?=round($wind->calculateXTravelRatio(), $wind->sig_figures)?> </td>
+            </tr>              
             <tr>
                 <td>Length of CF required for ONE pass (left to right only)</td>
                 <td><?=round($wind->calculateCFMetersOnePass(), $wind->sig_figures)?> meters</td>

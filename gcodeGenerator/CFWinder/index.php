@@ -30,7 +30,14 @@ USE AT YOUR OWN RISK.
                         <input type="text" name="mandrelRadius" value="0.0381" />
                     </td>
                 </tr>
-                </tr>
+                <tr>
+                    <td>
+                       Distance from mandrel surface to eyelet (meters)
+                    </td>
+                    <td>
+                        <input type="text" name="eyeletDistance" value="0.14" />
+                    </td>
+                </tr>                
                 <tr>
                     <td>
                         Useful Tube Length (meters)

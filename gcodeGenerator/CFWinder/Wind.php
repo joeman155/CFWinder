@@ -13,6 +13,7 @@
  */
 class Wind {
     private $mandrelRadius;                   // Radius of Mandrel - meters
+    private $eyeletDistance;                  // Perpendicular distance from mandrel surface to eyelet dispensing CF.
     private $cf_angle;                        // Angle at which we wind the Carbon Fiber - Degrees
     private $wind_angle_per_pass;             // Degrees - the offset from the starting point
     private $cf_width;                        // Width of fiber in Meters
@@ -121,13 +122,14 @@ class Wind {
     public  $wind_time;                     // Time required to wind.
     
 
-    public function __construct($useful_tube_length, $mandrelRadius, $cf_angle, $wind_angle_per_pass, $cf_width,
+    public function __construct($useful_tube_length, $mandrelRadius, $eyeletDistance, $cf_angle, $wind_angle_per_pass, $cf_width,
                                 $extra_spindle_turn, $transition_feed_rate, $straight_feed_rate, $spindle_direction,
                                 $start_x=0, $start_s=0) {
         
         
         
         $this->cf_angle            = $cf_angle;
+        $this->eyeletDistance      = $eyeletDistance;
         $this->mandrelRadius       = $mandrelRadius;
         $this->wind_angle_per_pass = $wind_angle_per_pass;
         $this->cf_width            = $cf_width;
@@ -234,6 +236,19 @@ class Wind {
     
     public function getMandrelDiameter() {
         return 2 * $this->mandrelRadius;
+    }
+
+
+    public function getMandrelRadius() {
+        return $this->mandrelRadius;
+    }    
+    
+    public function getEyeletDistance() {
+        return $this->eyeletDistance;
+    }       
+    
+    public function calculateXTravelRatio() {
+        return ($this->eyeletDistance + $this->mandrelRadius)/$this->mandrelRadius;
     }
     
     
@@ -432,9 +447,12 @@ class Wind {
         return $this->total_y_transition_distance;
     }    
     
+    
+    
+    
     public function generatePass() {
         
-        $this->current_pass++;
+        $this->current_pass++; 
         
         if ($this->current_pass %2 == 0) {
             $direction = -1;
@@ -532,7 +550,7 @@ class Wind {
      * $feedrate             - The feedrate!
      * 
      */
-    public function generateTransitionCode($transition_direction, $x_center_pos, $s_center_pos, $x_travel, $s_travel, $feedrate) {
+    public function generateTransitionCode($transition_direction, $x_center_pos, $s_center_pos, $x_travel, $s_travel, $feedrate) {      
         
         $this->current_x = $this->current_x + $x_travel;
         $this->current_s = $this->current_s + $s_travel;
@@ -571,6 +589,7 @@ class Wind {
 
     
     public function generateXYCode($x_travel, $s_travel, $feedrate) {
+                
         // Calculate new positions
         $this->current_x = $this->current_x + $x_travel;
         $this->current_s = $this->current_s + $s_travel;
