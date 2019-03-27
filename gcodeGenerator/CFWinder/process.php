@@ -20,10 +20,11 @@ $transition_feed_rate  = $_REQUEST['transition_feed_rate'];
 $straight_feed_rate  = $_REQUEST['straight_feed_rate'];
 $spindle_direction   = $_REQUEST['spindle_direction'];
 $eyeletDistance      = $_REQUEST['eyeletDistance'];
+$transition_end_wind  = $_REQUEST['transition_end_wind'];
 
     
-$wind = new Wind($useful_tube_length, $mandrelRadius, $eyeletDistance, $cf_angle, $wind_angle_per_pass, $cf_width, $extra_spindle_turn, 
-                 $transition_feed_rate, $straight_feed_rate, $spindle_direction, $start_x);
+$wind = new Wind($mandrelRadius, $eyeletDistance, $cf_angle, $wind_angle_per_pass, $cf_width, $extra_spindle_turn, 
+                 $transition_feed_rate, $straight_feed_rate, $spindle_direction, $transition_end_wind, $start_x);
 
 $wind->generateGCodes();
 ?>
@@ -42,11 +43,7 @@ $wind->generateGCodes();
                 <th>
                     Value
                 </th>
-            </tr>
-            <tr>
-                <td>Useful Tube Length</td>
-                <td><?=round($wind->getUsefulTubeLength(), $wind->sig_figures)?> meters</td>
-            </tr>     
+            </tr>   
             <tr>
                 <td>Mandrel Radius</td>
                 <td><?=round($wind->getMandrelRadius(), $wind->sig_figures)?> meters</td>
@@ -152,7 +149,7 @@ $wind->generateGCodes();
             </tr>            
             <tr>
                 <td>Straight Section - X Distance (meters)</td>
-                <td><?=round($wind->getStraightLength(), $wind->sig_figures)?> meters</td>
+                <td><?=round($wind->calculateStraightLength(), $wind->sig_figures)?> meters</td>
             </tr>              
             
             <tr>

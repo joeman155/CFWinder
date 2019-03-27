@@ -18,9 +18,9 @@ class Wind {
     private $wind_angle_per_pass;             // Degrees - the offset from the starting point
     private $cf_width;                        // Width of fiber in Meters
     private $extra_spindle_turn;              // Extra angle we turn the tube when we get to the end.
-    private $useful_tube_length;              // Length of tube not in Transition section
     private $straight_feed_rate;              // Rate of laydown of CF during straight sections.
     private $spindle_direction;               // Direction the spindle spins. Clockwise is default = +1
+    private $transition_end_wind;             // Transition at end.
     
     // Self-imposed limits
     private $max_feed_rate = 14000;           // Maximum feed rate (mm/min)
@@ -109,6 +109,100 @@ class Wind {
     ];    
     */
     
+
+    /*
+    private $transition_schedule = [
+            0 => ['feedrate' => 1000,
+                  'cf_angle'    => 45,
+                  's_angle' => 18],
+            1 => ['feedrate' => 1001,
+                  'cf_angle'    => 60,
+                  's_angle' => 18],
+            2 => ['feedrate' => 1002,
+                  'cf_angle'    => 75,
+                  's_angle' => 18],
+            3 => ['feedrate' => 1003,
+                  'cf_angle'    => 82.5,
+                  's_angle' => 18],
+            4 => ['feedrate' => 1004,
+                  'cf_angle'    => 90,
+                  's_angle' => 18]
+    ];
+    */
+    
+
+    
+    // WORKING 45 degree Schedule
+    private $transition_schedule = [
+            0 => ['feedrate' => 1000,
+                  'cf_angle'    => 45,
+                  's_angle' => 18],
+            1 => ['feedrate' => 1001,
+                  'cf_angle'    => 50,
+                  's_angle' => 18],
+            2 => ['feedrate' => 1002,
+                  'cf_angle'    => 55,
+                  's_angle' => 18],
+            3 => ['feedrate' => 1003,
+                  'cf_angle'    => 60,
+                  's_angle' => 18],
+            4 => ['feedrate' => 1004,
+                  'cf_angle'    => 65,
+                  's_angle' => 18],
+            5 => ['feedrate' => 1005,
+                  'cf_angle'    => 70,
+                  's_angle' => 18],
+            6 => ['feedrate' => 1006,
+                  'cf_angle'    => 75,
+                  's_angle' => 18],
+            7 => ['feedrate' => 1007,
+                  'cf_angle'    => 80,
+                  's_angle' => 18],
+            8 => ['feedrate' => 1008,
+                  'cf_angle'    => 85,
+                  's_angle' => 18],
+            9 => ['feedrate' => 1009,
+                  'cf_angle'    => 90,
+                  's_angle' => 18]        
+    ];
+
+    
+    /*
+        // 30 Degree Schedule
+        private $transition_schedule = [
+            0 => ['feedrate' => 1000,
+                  'cf_angle'    => 30,
+                  's_angle' => 18],
+            1 => ['feedrate' => 1001,
+                  'cf_angle'    => 36.6667,
+                  's_angle' => 18],
+            2 => ['feedrate' => 1002,
+                  'cf_angle'    => 43.3333,
+                  's_angle' => 18],
+            3 => ['feedrate' => 1003,
+                  'cf_angle'    => 50,
+                  's_angle' => 18],
+            4 => ['feedrate' => 1004,
+                  'cf_angle'    => 56.6667,
+                  's_angle' => 18],
+            5 => ['feedrate' => 1005,
+                  'cf_angle'    => 63.3333,
+                  's_angle' => 18],
+            6 => ['feedrate' => 1006,
+                  'cf_angle'    => 70,
+                  's_angle' => 18],
+            7 => ['feedrate' => 1007,
+                  'cf_angle'    => 76.6667,
+                  's_angle' => 18],
+            8 => ['feedrate' => 1008,
+                  'cf_angle'    => 83.3333,
+                  's_angle' => 18],
+            9 => ['feedrate' => 1009,
+                  'cf_angle'    => 90,
+                  's_angle' => 18]        
+    ];
+    */
+    
     private $current_x;                     // Units are mm - This is the train
     private $current_s;                     // Units are degrees - this is the spindle  (s is for spindle)
     private $current_pass;                  // The Pass we are on.
@@ -122,9 +216,9 @@ class Wind {
     public  $wind_time;                     // Time required to wind.
     
 
-    public function __construct($useful_tube_length, $mandrelRadius, $eyeletDistance, $cf_angle, $wind_angle_per_pass, $cf_width,
-                                $extra_spindle_turn, $transition_feed_rate, $straight_feed_rate, $spindle_direction,
-                                $start_x=0, $start_s=0) {
+    public function __construct($mandrelRadius, $eyeletDistance, $cf_angle, $wind_angle_per_pass, $cf_width,
+                                $extra_spindle_turn, $transition_feed_rate, $straight_feed_rate, $spindle_direction, $transition_end_wind,
+                                $start_x=0,  $start_s=0) {
         
         
         
@@ -136,6 +230,7 @@ class Wind {
         $this->extra_spindle_turn  = $extra_spindle_turn;
         $this->straight_feed_rate  = $straight_feed_rate;
         $this->spindle_direction   = $spindle_direction;
+        $this->transition_end_wind = $transition_end_wind;
         
         
         $this->start_x = $start_x;
@@ -151,7 +246,6 @@ class Wind {
         $this->sig_figures = 5;
         $this->wind_time = 0;
         
-        $this->useful_tube_length = $useful_tube_length;        
         
         $this->transition_feed_rate = $transition_feed_rate;
         $this->transition_arc_factor = $this->calculateFFactor();
@@ -200,16 +294,51 @@ class Wind {
         return $this->getTransitionRadius();
     }
     
-    public function getStraightLength() {
-        return $this->getUsefulTubeLength();
+    
+    /* 
+     * The horizontal component (x-axis) of the CF 
+     * 
+     */
+    public function calculateStraightXLength() {
+        return ($this->wind_angle_per_pass * 3.14159265/180) * $this->mandrelRadius/ tan(pi() * $this->cf_angle/180);
     }
     
+    
+    /*
+     * The actual length of CF required to do the straight component
+     */
+    public function calculateStraightLength() {
+        return ($this->wind_angle_per_pass * 3.14159265/180) * $this->mandrelRadius/ sin(pi() * $this->cf_angle/180);
+    }
 
     /*
-     * Returns length of transition in meters
+     * Returns length of transition in meters - this is the beginning transition and the end transition
      */
     public function getTransitionLength() {
-             return (pi()/180) * (90 - $this->cf_angle) * $this->getTransitionRadius();
+        
+        $x_travel = 0;
+        
+        // Calculate x travel (on spindle) for initial transition (start of each pass)
+            foreach (array_reverse($this->transition_schedule) as $key => $value) {
+            $cf_angle = $value['cf_angle'];
+            $s_angle =  $value['s_angle'];
+            $feedrate = $value['feedrate'];
+            
+            // The s_travel == s_ange
+            $s_travel = $s_angle;
+            
+            // Calculate the distance in meters that the y-axis moves
+            $y_travel = $this->mandrelRadius * ($s_angle * pi()/180);
+            
+            // Based on the angle we want AND the X travel ratio, work out how far to move the train.
+            $x_travel = $x_travel + abs($y_travel / tan($cf_angle * pi()/180));
+            
+        }
+        
+        // Now add travel at end (end of each pass)
+        $x_travel = $x_travel + $this->eyeletDistance/tan(pi() * $this->cf_angle / 180);
+        
+      return $x_travel;
     }        
     
     public function getCFWeight() {
@@ -256,14 +385,14 @@ class Wind {
      * This is the entire tube length, including the transition sections
      */
     public function getTubeLength() {
-        return  $this->useful_tube_length + $this->total_x_transition_distance;
+        return  $this->getUsefulTubeLength() + $this->total_x_transition_distance;
     }
     
    /* 
      * This is tube without the transitions - the useful section.
      */
     public function getUsefulTubeLength() {
-        return  $this->useful_tube_length;
+        return  $this->calculateStraightXLength();
     }
 
     
@@ -287,7 +416,7 @@ class Wind {
     public function actualCFAdvancementAngle() {
         return round(360 * $this->actualCFAdvancement() /$this->getMandrelCircumference(),3);
     }   
-
+ 
     
     public function calculateSurfaceArea() {
         return pi() * 2 * $this->mandrelRadius * $this->getUsefulTubeLength();  // Changed to useful length
@@ -337,7 +466,12 @@ class Wind {
             $extra_spindle_turn_distance = 0;
         }
         
-        return 2 * $this->getTransitionLength() + $this->getStraightLength() + $extra_spindle_turn_distance; 
+        
+        
+        $begin_transition_length = 0;   // TODO
+        $end_transition_length = 0;     // TODO
+        
+        return  $begin_transition_length + $this->calculateStraightLength() + $end_transition_length + $extra_spindle_turn_distance; 
     }
     
     
@@ -402,13 +536,7 @@ class Wind {
     }
 
     
-    public function calculateTotalXTransitionDistance() {
-       $d = $this->transition_radius * (1 - sin(pi() * $this->cf_angle/180));
-       
-        // We multiple by two because we have TWO transitions per pass.
-        return 2 * $d;
-    }    
-    
+   
     
     public function calculateFFactor() {
         // We split this into to ... numerator and demoninator and multiplier - to make it easier to "Read"        
@@ -421,6 +549,38 @@ class Wind {
         return $mult * $numerator/$demoninator;
     }
     
+    
+    /* 
+     * Returns the total total meters of movement in BOTH transitions
+     * 
+     */
+    public function calculateTotalXTransitionDistance() {
+        
+        $x_travel = 0;
+        
+        // Calculate x travel (on spindle) for initial transition (start of each pass)
+            foreach (array_reverse($this->transition_schedule) as $key => $value) {
+            $cf_angle = $value['cf_angle'];
+            $s_angle =  $value['s_angle'];
+            $feedrate = $value['feedrate'];
+            
+            // The s_travel == s_ange
+            $s_travel = $s_angle;
+            
+            // Calculate the distance in meters that the y-axis moves
+            $y_travel = $this->mandrelRadius * ($s_angle * pi()/180);
+            
+            // Based on the angle we want AND the X travel ratio, work out how far to move the train.
+            $x_travel = $x_travel + abs($y_travel / tan($cf_angle * pi()/180));
+            
+        }
+        
+        // Now add travel at end (end of each pass)
+        $x_travel = $x_travel + $this->eyeletDistance/tan(pi() * $this->cf_angle / 180);
+        
+      return $x_travel;
+        
+    }       
     
     /* 
      * Returns the total total # of degrees for each pass from both transitions(one at each end)
@@ -466,19 +626,59 @@ class Wind {
         // Only advance if on 3,5,7... pass. i.e. not on first pass or even pass
         // We use transision feed rates.
         if ($this->current_pass > 1 && $this->current_pass % 2 == 1) {
-            $feedrate = $this->transition_feed_rate;
+            $feedrate = $this->transition_feed_rate + 99;
             $s_travel = $this->actualCFAdvancementAngle() + $this->extra_spindle_turn;
             $this->generateYCode($s_travel, $feedrate);
         } elseif ($this->current_pass > 1 && $this->current_pass % 2 == 0 && $this->extra_spindle_turn > 0) {
             // Add the SPIN at the end (if one is requested). Purpose of this is to try and maintain tension in the CF.
-            $feedrate = $this->transition_feed_rate;
+            $feedrate = $this->transition_feed_rate + 98;
             $s_travel = $this->extra_spindle_turn;
             $this->generateYCode($s_travel, $feedrate); 
         }
         
 
         
+        
         // Do the Transition
+        $lead_distance = 0;
+        foreach (array_reverse($this->transition_schedule) as $key => $value) {
+           // print "Processing Transition: " . $value['angle'] . "<br />";
+            $cf_angle_prev = $cf_angle;
+            $y_travel_prev = $y_travel;
+            $cf_angle = $value['cf_angle'];
+            $s_angle =  $value['s_angle'];
+            // $feedrate = $value['feedrate'];
+            $feedrate = $this->transition_feed_rate;
+            
+        //    print "cf_angle: " . $cf_angle . "<br />";
+        //    print "s_angle: " . $s_angle . "<br />";
+        //    print "feedrate: " . $feedrate . "<br />";
+            
+            // The s_travel == s_ange
+            $s_travel = $s_angle;
+            
+            // Calculate the distance in meters that the y-axis moves
+            $y_travel = $this->mandrelRadius * ($s_angle * pi()/180);
+            
+            // Based on the angle we want AND the X travel ratio, work out how far to move the train.
+            $x_travel_unscaled = abs($y_travel / tan($cf_angle * pi()/180));
+            $x_travel = $direction * $x_travel_unscaled * $this->calculateXTravelRatio();
+            
+            // We are already leading the point at which tow hits axis...we work out what this is
+            $lead_distance = $x_travel - $x_travel_unscaled;
+            
+            
+            // Because we already lead it, we don't need to move as far horizontally
+            $x_travel = $direction * ($x_travel - $lead_distance);
+            
+            
+            // print "x_travel, y_travel = " . round($x_travel,6)*1000 . ", "  . 1000 * round($y_travel,6) . "<br />";
+            $this->generateXYCode($x_travel, $s_travel, $feedrate);
+        }
+
+        
+        /*
+        // ARC MOVE
         $transition_direction = -1 * $direction * $this->getSpindleDirection();  // Direction of the Arc
         $x_center_pos = $direction * $this->getTransitionXPoint();
         $s_center_pos = $this->calculateYTravelDegrees(0);
@@ -486,19 +686,74 @@ class Wind {
         $x_travel = $direction * $this->transition_radius * (1 - sin($this->cf_angle * (pi()/180)));
         $s_travel = $this->calculateYTravelDegrees($y_travel_distance);
         $this->generateTransitionCode($transition_direction, $x_center_pos, $s_center_pos, $x_travel, $s_travel, $this->transition_feed_rate);
-         
+        */ 
         
         
         # Max Speed
-        $x_travel = $direction * ($this->getUsefulTubeLength() - $this->total_x_transition_distance);   // Changed to Useful Tube Length
-        $feedrate = $this->straight_feed_rate;
-        $s_travel = $this->calculateYTravel($x_travel);
-        $this->generateXYCode($x_travel, $s_travel, $feedrate);
+        // $x_travel = $direction * ($this->getUsefulTubeLength() - $this->total_x_transition_distance);   // Changed to Useful Tube Length
+        // $feedrate = $this->straight_feed_rate;
+        // Based on the x travel (along mandrel surface), find out how far to move the spindle (angle)
+        // $s_travel = $this->calculateYTravel($x_travel);
+        // Multiple by factor to take into account distance eyelet is from mandrel
+        // $x_travel = $this->calculateXTravelRatio() * $x_travel;
+        // $this->generateXYCode($x_travel, $s_travel, $feedrate);
         // print "X_Travel: " . $x_travel . ", Feedrate: " . $feedrate . ", Y_Travel: " . $y_travel . "<br />";
         
+        
+        # Max Speed
+        $s_travel = $this->wind_angle_per_pass;
+        $feedrate = $this->straight_feed_rate;
+        $x_travel = $direction * $this->calculateStraightXLength();
+        $this->generateXYCode($x_travel, $s_travel, $feedrate);
 
           
-        // Do the Transition
+        // Do the Transition 
+        // $distance_in_front = $this->eyeletDistance / tan($this->cf_angle * pi()/180);
+        // Do this by rotating 360 degrees
+        $s_travel = $this->transition_end_wind;
+        $feedrate = $this->transition_feed_rate + 97;
+        $this->generateYCode($s_travel, $feedrate);        
+        
+        
+        /*
+        foreach ($this->transition_schedule as $key => $value) {
+           // print "Processing Transition: " . $value['angle'] . "<br />";
+            $cf_angle = $value['cf_angle'];
+            $s_angle =  $value['s_angle'];
+            $feedrate = $value['feedrate'];
+            
+            // The s_travel == s_ange
+            $s_travel = $s_angle;
+            
+            // Calculate the distance in meters that the y-axis moves
+            $y_travel = $this->mandrelRadius * ($s_angle * pi()/180);
+            
+            // Based on the angle we want AND the X travel ratio, work out how far to move the train.
+            $x_travel = $direction * abs($this->calculateXTravelRatio() * $y_travel / tan($cf_angle * pi()/180));
+
+            
+            // print "X_travel, cf_angle, s_travel = " . round($x_travel,4)*1000 . ", " . $cf_angle . ", " . round($s_travel,1) . "<br />";
+            $this->generateXYCode($x_travel, $s_travel, $feedrate);
+        }
+         * 
+         */
+/*        
+        foreach ($this->transition_schedule as $key => $value) {
+           // print "Processing Transition: " . $value['angle'] . "<br />";
+            $cf_angle = $value['angle'];
+            $total_travel = $direction * $value['distance'];
+            $feedrate = $value['feedrate'];
+            $x_travel = $total_travel * cos($cf_angle * pi()/180);
+            $y_travel = abs($total_travel * sin($cf_angle * pi()/180));
+
+            $s_travel = abs($this->calculateYTravelDegrees($y_travel));
+           //  print "X_travel, cf_angle, y_angle = " . round($x_travel,4)*1000 . ", " . $cf_angle . ", " . round($y_travel,1) . "<br />";
+            $this->generateXYCode($x_travel, $s_travel, $feedrate);
+        }
+*/
+
+/*        
+        // ARC MOVE
         $transition_direction = 1 * $direction * $this->getSpindleDirection();  // Direction of the Arc
         // The Relative Center Pos are different for the second transition in each pass. We are starting from the other end.
         $x_center_pos = -$direction * $this->transition_radius * sin($this->cf_angle * pi()/180);   // This is relative to CURRENT point
@@ -507,6 +762,7 @@ class Wind {
         $x_travel = $direction * $this->transition_radius * (1 - sin($this->cf_angle * (pi()/180)));
         $s_travel = $this->calculateYTravelDegrees($y_travel_distance);
         $this->generateTransitionCode($transition_direction, $x_center_pos, $s_center_pos, $x_travel, $s_travel, $this->transition_feed_rate);
+*/
         
         
     }

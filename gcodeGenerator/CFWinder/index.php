@@ -35,25 +35,22 @@ USE AT YOUR OWN RISK.
                        Distance from mandrel surface to eyelet (meters)
                     </td>
                     <td>
-                        <input type="text" name="eyeletDistance" value="0.14" />
+                        <input type="text" name="eyeletDistance" value="0.03" />
                     </td>
-                </tr>                
-                <tr>
-                    <td>
-                        Useful Tube Length (meters)
-                    </td>
-                    <td>
-                        <input type="text" name="useful_tube_length" value="0.190" />
-                    </td>
-                </tr>                
+                </tr>                           
             <tr>
                 <td>Carbon Fiber Laydown Angle (degrees)</td>
                 <td><input type="text" name="cf_angle" value="30" /></td>
             </tr>          
             <tr>
                 <td>Additional Wind each end (degrees)</td>
-                <td><input type="text" name="extra_spindle_turn" value="180" /></td>
-            </tr>                
+                <td><input type="text" name="extra_spindle_turn" value="0" /></td>
+            </tr>         
+            
+            <tr>
+                <td>Transition End Wind Angle (degrees)</td>
+                <td><input type="text" name="transition_end_wind" value="360" /></td>
+            </tr>               
             <tr>
                 <td>Straight Feed Rate (mm/min)</td>
                 <td><input type="text" name="straight_feed_rate" value="3000" /></td>
@@ -73,15 +70,15 @@ USE AT YOUR OWN RISK.
             </tr>              
             <tr>
                 <td>Carbon Fiber width (meters)</td>
-                <td><input type="text" name="cf_width" value="0.005" /></td>
+                <td><input type="text" name="cf_width" value="0.007" /></td>
             </tr>
             <tr>
-                <td>Wind angle per pass (offset from the starting angle)</td>
-                <td><input type="text" name="wind_angle_per_pass" value="180" /></td>
+                <td>Wind angle per pass (The number of rotations for the straight part ONLY)</td>
+                <td><input type="text" name="wind_angle_per_pass" value="540" /></td>
             </tr>      
             <tr>
                 <td>Horizontal starting position (meters)</td>
-                <td><input type="text" name="start_x" value="0.315" /></td>
+                <td><input type="text" name="start_x" value="0.1" /></td>
             </tr>                 
             </table>
             
