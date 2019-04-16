@@ -35,12 +35,12 @@ USE AT YOUR OWN RISK.
                        Distance from mandrel surface to eyelet (meters)
                     </td>
                     <td>
-                        <input type="text" name="eyeletDistance" value="0.03" />
+                        <input type="text" name="eyeletDistance" value="0.33" />
                     </td>
                 </tr>                           
             <tr>
                 <td>Carbon Fiber Laydown Angle (degrees)</td>
-                <td><input type="text" name="cf_angle" value="30" /></td>
+                <td><input type="text" name="cf_angle" value="45" /></td>
             </tr>          
             <tr>
                 <td>Additional Wind each end (degrees)</td>
@@ -64,7 +64,7 @@ USE AT YOUR OWN RISK.
                 <td>
                     <select  name="spindle_direction">
                         <option value="1">Clockwise</option>
-                        <option value="-1">Anti-Clockwise</option>
+                        <option selected value="-1">Anti-Clockwise</option>
                     </select>
                 </td>
             </tr>              

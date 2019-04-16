@@ -130,7 +130,8 @@ $wind->generateGCodes();
             <tr>
                 <td>Transition X distance (meters)</td>
                 <td><?=round($wind->getTotalXTransitionDistance(), $wind->sig_figures)?> meters</td>
-            </tr>                 
+            </tr>  
+<!--            
             <tr>
                 <td>Transition S distance (degrees)</td>
                 <td><?=round($wind->getTotalYTransitionDistance(), $wind->sig_figures)?> degrees</td>
@@ -146,10 +147,11 @@ $wind->generateGCodes();
             <tr>
                 <td>Transition Radius (meters)</td>
                 <td><?=round($wind->getTransitionRadius(), $wind->sig_figures)?> meters</td>
-            </tr>            
+            </tr>   
+-->
             <tr>
                 <td>Straight Section - X Distance (meters)</td>
-                <td><?=round($wind->calculateStraightLength(), $wind->sig_figures)?> meters</td>
+                <td><?=round($wind->calculateStraightXLength(), $wind->sig_figures)?> meters</td>
             </tr>              
             
             <tr>

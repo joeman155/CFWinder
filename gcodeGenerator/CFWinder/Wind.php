@@ -205,6 +205,7 @@ class Wind {
     
     private $current_x;                     // Units are mm - This is the train
     private $current_s;                     // Units are degrees - this is the spindle  (s is for spindle)
+    private $current_z;                     // Units are degrees - this is third axis...using z-axis to control
     private $current_pass;                  // The Pass we are on.
      
     private $start_x;                       // Starting position of Train - meters    
@@ -218,7 +219,7 @@ class Wind {
 
     public function __construct($mandrelRadius, $eyeletDistance, $cf_angle, $wind_angle_per_pass, $cf_width,
                                 $extra_spindle_turn, $transition_feed_rate, $straight_feed_rate, $spindle_direction, $transition_end_wind,
-                                $start_x=0,  $start_s=0) {
+                                $start_x=0,  $start_s=0, $start_z=0) {
         
         
         
@@ -235,9 +236,11 @@ class Wind {
         
         $this->start_x = $start_x;
         $this->start_s = $start_s;
+        $this->start_z = $start_z;
         
         $this->current_x = $start_x;
         $this->current_s = $start_s;
+        $this->current_z = $start_z;
         
         $this->gcodes = array();
         
@@ -306,13 +309,19 @@ class Wind {
     
     /*
      * The actual length of CF required to do the straight component
+     * 
+     * 
+     * TODO: This function is completely wrong at present.
      */
     public function calculateStraightLength() {
         return ($this->wind_angle_per_pass * 3.14159265/180) * $this->mandrelRadius/ sin(pi() * $this->cf_angle/180);
     }
 
     /*
-     * Returns length of transition in meters - this is the beginning transition and the end transition
+     * Returns length of transition in meters of CF required- this is the beginning transition and the end transition
+     * 
+     * 
+     * TODO: This function is completely wrong at present.
      */
     public function getTransitionLength() {
         
@@ -324,7 +333,7 @@ class Wind {
             $s_angle =  $value['s_angle'];
             $feedrate = $value['feedrate'];
             
-            // The s_travel == s_ange
+            // The s_travel == s_angle
             $s_travel = $s_angle;
             
             // Calculate the distance in meters that the y-axis moves
@@ -559,26 +568,41 @@ class Wind {
         $x_travel = 0;
         
         // Calculate x travel (on spindle) for initial transition (start of each pass)
-            foreach (array_reverse($this->transition_schedule) as $key => $value) {
-            $cf_angle = $value['cf_angle'];
-            $s_angle =  $value['s_angle'];
-            $feedrate = $value['feedrate'];
+        $lead_distance = 0;
+        $direction = 1;
+        foreach (array_reverse($this->transition_schedule) as $key => $value) {
+          $cf_angle = $value['cf_angle'];
+          $s_angle =  $value['s_angle'];
+          $feedrate = $value['feedrate'];
             
-            // The s_travel == s_ange
-            $s_travel = $s_angle;
+          // The s_travel == s_ange
+          $s_travel = $s_angle;
             
-            // Calculate the distance in meters that the y-axis moves
-            $y_travel = $this->mandrelRadius * ($s_angle * pi()/180);
+          // Calculate the distance in meters that the y-axis moves
+          $y_travel = $this->mandrelRadius * ($s_angle * pi()/180);
+                      
+          
+          $x_travel_unscaled = abs($y_travel / tan($cf_angle * pi()/180));
+          $x_travel = $x_travel_unscaled * $this->calculateXTravelRatio();
+                        
+          // Because we already lead it, we don't need to move as far horizontally
+          $x_travel = $direction * ($x_travel - $lead_distance);
             
-            // Based on the angle we want AND the X travel ratio, work out how far to move the train.
-            $x_travel = $x_travel + abs($y_travel / tan($cf_angle * pi()/180));
-            
+          // We take a note of the distance we are infront of the mandrel/CF meet point...as we need this for the next iteration.
+          $lead_distance = abs($x_travel) - abs($x_travel_unscaled);
+           
+          $x_tran_in = $x_tran_in + $x_travel;
         }
         
-        // Now add travel at end (end of each pass)
-        $x_travel = $x_travel + $this->eyeletDistance/tan(pi() * $this->cf_angle / 180);
+        // print "x_tr_in = " . $x_tran_in . "<br />";
         
-      return $x_travel;
+        
+        // Now add travel at end (end of each pass)
+        $x_tran_out = $this->eyeletDistance/tan(pi() * $this->cf_angle / 180);
+        
+        // print "x_tr_out = " . $x_tran_out . "<br />";
+        
+      return $x_tran_in + $x_tran_out;
         
     }       
     
@@ -616,8 +640,7 @@ class Wind {
         
         if ($this->current_pass %2 == 0) {
             $direction = -1;
-        } else
-        {
+        } else {
             $direction = +1;
         }
         
@@ -628,12 +651,14 @@ class Wind {
         if ($this->current_pass > 1 && $this->current_pass % 2 == 1) {
             $feedrate = $this->transition_feed_rate + 99;
             $s_travel = $this->actualCFAdvancementAngle() + $this->extra_spindle_turn;
-            $this->generateYCode($s_travel, $feedrate);
+            $z_travel = 0 - $this->current_z;
+            $this->generateYCode($s_travel, $z_travel, $feedrate);
         } elseif ($this->current_pass > 1 && $this->current_pass % 2 == 0 && $this->extra_spindle_turn > 0) {
             // Add the SPIN at the end (if one is requested). Purpose of this is to try and maintain tension in the CF.
             $feedrate = $this->transition_feed_rate + 98;
             $s_travel = $this->extra_spindle_turn;
-            $this->generateYCode($s_travel, $feedrate); 
+            $z_travel = 0 - $this->current_z;
+            $this->generateYCode($s_travel, $z_travel, $feedrate); 
         }
         
 
@@ -643,9 +668,13 @@ class Wind {
         $lead_distance = 0;
         foreach (array_reverse($this->transition_schedule) as $key => $value) {
            // print "Processing Transition: " . $value['angle'] . "<br />";
-            $cf_angle_prev = $cf_angle;
+            if (isset($cf_angle)) {
+                $cf_angle_prev = $cf_angle;
+            } else {
+                $cf_angle_prev = 90;
+            }
             $y_travel_prev = $y_travel;
-            $cf_angle = $value['cf_angle'];
+            $cf_angle = $value['cf_angle'];         
             $s_angle =  $value['s_angle'];
             // $feedrate = $value['feedrate'];
             $feedrate = $this->transition_feed_rate;
@@ -662,18 +691,24 @@ class Wind {
             
             // Based on the angle we want AND the X travel ratio, work out how far to move the train.
             $x_travel_unscaled = abs($y_travel / tan($cf_angle * pi()/180));
-            $x_travel = $direction * $x_travel_unscaled * $this->calculateXTravelRatio();
+            $x_travel = $x_travel_unscaled * $this->calculateXTravelRatio();
             
-            // We are already leading the point at which tow hits axis...we work out what this is
-            $lead_distance = $x_travel - $x_travel_unscaled;
+            // print $cf_angle . " - " . $cf_angle_prev . "<br />";
+            // Work out how far to rotate the z-axis
+            $z_travel = $this->getSpindleDirection() * $direction * abs($cf_angle - $cf_angle_prev);
             
+//            print "calculateXTravelRatio = " . $this->calculateXTravelRatio() . "<br />";
+//            print "x_travel_unscaled = " . $x_travel_unscaled . "<br />";
+//            print "x_travel = " . $x_travel . "<br />";
             
             // Because we already lead it, we don't need to move as far horizontally
             $x_travel = $direction * ($x_travel - $lead_distance);
             
+            // We take a note of the distance we are infront of the mandrel/CF meet point...as we need this for the next iteration.
+            $lead_distance = abs($x_travel) - abs($x_travel_unscaled);
             
-            // print "x_travel, y_travel = " . round($x_travel,6)*1000 . ", "  . 1000 * round($y_travel,6) . "<br />";
-            $this->generateXYCode($x_travel, $s_travel, $feedrate);
+            // print "x_travel_unscaled, x_travel, y_travel = " . round($x_travel_unscaled,6)*1000 . ", " . round($x_travel,6)*1000 . ", "  . 1000 * round($y_travel,6) . "<br />";
+            $this->generateXYCode($x_travel, $s_travel, $z_travel, $feedrate);
         }
 
         
@@ -704,15 +739,16 @@ class Wind {
         $s_travel = $this->wind_angle_per_pass;
         $feedrate = $this->straight_feed_rate;
         $x_travel = $direction * $this->calculateStraightXLength();
-        $this->generateXYCode($x_travel, $s_travel, $feedrate);
+        $this->generateXYCode($x_travel, $s_travel, 0, $feedrate);
 
           
         // Do the Transition 
         // $distance_in_front = $this->eyeletDistance / tan($this->cf_angle * pi()/180);
         // Do this by rotating 360 degrees
         $s_travel = $this->transition_end_wind;
+        $z_travel = -$direction * $this->getSpindleDirection() * $this->cf_angle;
         $feedrate = $this->transition_feed_rate + 97;
-        $this->generateYCode($s_travel, $feedrate);        
+        $this->generateYCode($s_travel, $z_travel, $feedrate);        
         
         
         /*
@@ -749,7 +785,7 @@ class Wind {
             $s_travel = abs($this->calculateYTravelDegrees($y_travel));
            //  print "X_travel, cf_angle, y_angle = " . round($x_travel,4)*1000 . ", " . $cf_angle . ", " . round($y_travel,1) . "<br />";
             $this->generateXYCode($x_travel, $s_travel, $feedrate);
-        }
+        } 
 */
 
 /*        
@@ -793,6 +829,14 @@ class Wind {
         
     }
     
+    /*
+     * Given a z pos (degrees), output the appropriate value
+     */
+    public function generateZPosValue($zpos) {
+
+       return $zpos;    
+        
+    }    
     
     
     /*
@@ -844,11 +888,18 @@ class Wind {
     }
 
     
-    public function generateXYCode($x_travel, $s_travel, $feedrate) {
+    /* Used to generate code to move the train along the 'main section'
+     * 
+     * At this point in time, the Z-axis should already be aligned appropriately,
+     * so there is no rules here to change it.
+     * 
+     */
+    public function generateXYCode($x_travel, $s_travel, $z_travel, $feedrate) {
                 
         // Calculate new positions
         $this->current_x = $this->current_x + $x_travel;
         $this->current_s = $this->current_s + $s_travel;
+        $this->current_z = $this->current_z + $z_travel;
         
         if ($this->current_x < 0) {
             $this->current_x = 0;
@@ -861,13 +912,14 @@ class Wind {
         // Add to the total time 
         $this->addTime($wind_time);
         
-        $code_text = "G1 F" . $feedrate . " X" . $this->generateXPosValue($this->current_x) . " Y" . $this->generateYPosValue($this->current_s);
+        $code_text = "G1 F" . $feedrate . " X" . $this->generateXPosValue($this->current_x) . " Y" . $this->generateYPosValue($this->current_s) . " Z" . $this->generateZPosValue($this->current_z);
         array_push($this->gcodes, $code_text);
     }
     
-    public function generateYCode($s_travel, $feedrate) { 
+    public function generateYCode($s_travel, $z_travel, $feedrate) { 
         // Calculate new positions
         $this->current_s = $this->current_s + $s_travel;
+        $this->current_z = $this->current_z + $z_travel;
 
         // Calculate the time to do this maneuver
         // $y_travel_meters = (pi()/180) * $s_travel * $this->mandrelRadius;
@@ -878,7 +930,7 @@ class Wind {
         // print "yWind Time: " . $wind_time . "<br/>";
         $this->addTime($wind_time);
         
-        $code_text = "G1 F" . $feedrate . " Y" . $this->generateYPosValue($this->current_s);
+        $code_text = "G1 F" . $feedrate . " Y" . $this->generateYPosValue($this->current_s) . " Z" . $this->generateZPosValue($this->current_z);
         array_push($this->gcodes, $code_text);
     }    
     
@@ -905,6 +957,7 @@ class Wind {
         array_push($this->gcodes, "M1");
         array_push($this->gcodes, "G1 F6000 X" . 1000 * $this->start_x);
         array_push($this->gcodes, "G1 F6000 Y" . $this->start_s);
+        array_push($this->gcodes, "G1 F6000 Z" . $this->start_z);        
         array_push($this->gcodes, "M1");
 
 
