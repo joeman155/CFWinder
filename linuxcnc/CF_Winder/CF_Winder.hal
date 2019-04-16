@@ -33,6 +33,8 @@ setp parport.0.pin-03-out-invert 1
 net xdir            => parport.0.pin-03-out
 net ystep           => parport.0.pin-04-out
 net ydir            => parport.0.pin-05-out
+net zstep           => parport.0.pin-06-out
+net zdir            => parport.0.pin-07-out
 net xenable         => parport.0.pin-14-out
 net home-x          <= parport.0.pin-15-in
 net min-home-x          <= parport.0.pin-15-in-not
