@@ -679,9 +679,10 @@ class Wind {
             // $feedrate = $value['feedrate'];
             $feedrate = $this->transition_feed_rate;
             
-        //    print "cf_angle: " . $cf_angle . "<br />";
-        //    print "s_angle: " . $s_angle . "<br />";
-        //    print "feedrate: " . $feedrate . "<br />";
+            print "in - cf_angle: " . $cf_angle . "<br />";
+            print "in - s_angle: " . $s_angle . "<br />";
+            print "in - feedrate: " . $feedrate . "<br />";
+            
             
             // The s_travel == s_ange
             $s_travel = $s_angle;
@@ -697,9 +698,9 @@ class Wind {
             // Work out how far to rotate the z-axis
             $z_travel = $this->getSpindleDirection() * $direction * abs($cf_angle - $cf_angle_prev);
             
-//            print "calculateXTravelRatio = " . $this->calculateXTravelRatio() . "<br />";
-//            print "x_travel_unscaled = " . $x_travel_unscaled . "<br />";
-//            print "x_travel = " . $x_travel . "<br />";
+            print "calculateXTravelRatio = " . $this->calculateXTravelRatio() . "<br />";
+            print "x_travel_unscaled = " . $x_travel_unscaled . "<br />";
+            print "x_travel = " . $x_travel . "<br />";
             
             // Because we already lead it, we don't need to move as far horizontally
             $x_travel = $direction * ($x_travel - $lead_distance);
@@ -742,13 +743,69 @@ class Wind {
         $this->generateXYCode($x_travel, $s_travel, 0, $feedrate);
 
           
+        
+        
         // Do the Transition 
+        // Do the Transition
+        // $lead_distance = 0;
+        unset($cf_angle);
+        unset($t_travel);
+        foreach ($this->transition_schedule as $key => $value) {
+           // print "Processing Transition: " . $value['angle'] . "<br />";
+            if (isset($cf_angle)) {
+                $cf_angle_prev = $cf_angle;
+            } else {
+                $cf_angle_prev = $this->cf_angle;
+            }
+            $y_travel_prev = $y_travel;
+            $cf_angle = $value['cf_angle'];         
+            $s_angle =  $value['s_angle'];
+            // $feedrate = $value['feedrate'];
+            $feedrate = $this->transition_feed_rate;
+            
+            print "out - cf_angle: " . $cf_angle . "<br />";
+            print "out - s_angle: " . $s_angle . "<br />";
+            print "out - feedrate: " . $feedrate . "<br />";
+            
+            // The s_travel == s_ange
+            $s_travel = $s_angle;
+            
+            // Calculate the distance in meters that the y-axis moves
+            $y_travel = $this->mandrelRadius * ($s_angle * pi()/180);
+            
+            // Based on the angle we want AND the X travel ratio, work out how far to move the train.
+            $x_travel_unscaled = abs($y_travel / tan($cf_angle * pi()/180));
+            $x_travel = $x_travel_unscaled * $this->calculateXTravelRatio();
+            
+            // print $cf_angle . " - " . $cf_angle_prev . "<br />";
+            // Work out how far to rotate the z-axis
+            $z_travel = -$this->getSpindleDirection() * $direction * abs($cf_angle - $cf_angle_prev);
+            
+            print "calculateXTravelRatio = " . $this->calculateXTravelRatio() . "<br />";
+            print "x_travel_unscaled = " . $x_travel_unscaled . "<br />";
+            print "x_travel = " . $x_travel . "<br />";
+            
+            // Because we already lead it, we don't need to move as far horizontally
+            $x_travel = $direction * ($x_travel - $lead_distance);
+            
+            // We take a note of the distance we are infront of the mandrel/CF meet point...as we need this for the next iteration.
+            $lead_distance = abs($x_travel) - abs($x_travel_unscaled);
+            
+            // print "x_travel_unscaled, x_travel, y_travel = " . round($x_travel_unscaled,6)*1000 . ", " . round($x_travel,6)*1000 . ", "  . 1000 * round($y_travel,6) . "<br />";
+            $this->generateXYCode($x_travel, $s_travel, $z_travel, $feedrate);
+        }
+
+        
+        
+        /*
         // $distance_in_front = $this->eyeletDistance / tan($this->cf_angle * pi()/180);
         // Do this by rotating 360 degrees
         $s_travel = $this->transition_end_wind;
         $z_travel = -$direction * $this->getSpindleDirection() * $this->cf_angle;
         $feedrate = $this->transition_feed_rate + 97;
         $this->generateYCode($s_travel, $z_travel, $feedrate);        
+        */
+        
         
         
         /*
