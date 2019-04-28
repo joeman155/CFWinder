@@ -12,7 +12,6 @@ $useful_tube_length  = $_REQUEST['useful_tube_length'];
 $mandrelRadius       = $_REQUEST['mandrelRadius'];
 $cf_width            = $_REQUEST['cf_width'];
 $cf_angle            = $_REQUEST['cf_angle'];
-$length_multiplier   = $_REQUEST['length_multiplier'];
 $wind_angle_per_pass = $_REQUEST['wind_angle_per_pass'];
 $extra_spindle_turn  = $_REQUEST['extra_spindle_turn'];
 $start_x             = $_REQUEST['start_x'];
@@ -20,11 +19,14 @@ $transition_feed_rate  = $_REQUEST['transition_feed_rate'];
 $straight_feed_rate  = $_REQUEST['straight_feed_rate'];
 $spindle_direction   = $_REQUEST['spindle_direction'];
 $eyeletDistance      = $_REQUEST['eyeletDistance'];
-$transition_end_wind  = $_REQUEST['transition_end_wind'];
+$eyeletHeight        = $_REQUEST['eyeletHeight'];
+$transition_end_wind = $_REQUEST['transition_end_wind'];
+$transition_start_wind = $_REQUEST['transition_start_wind'];
+
 
     
-$wind = new Wind($mandrelRadius, $eyeletDistance, $cf_angle, $wind_angle_per_pass, $cf_width, $extra_spindle_turn, 
-                 $transition_feed_rate, $straight_feed_rate, $spindle_direction, $transition_end_wind, $start_x);
+$wind = new Wind($mandrelRadius, $eyeletDistance, $eyeletHeight, $cf_angle, $wind_angle_per_pass, $cf_width, $extra_spindle_turn, 
+                 $transition_feed_rate, $straight_feed_rate, $spindle_direction, $transition_start_wind, $transition_end_wind, $start_x);
 
 $wind->generateGCodes();
 ?>
@@ -51,7 +53,19 @@ $wind->generateGCodes();
             <tr>
                 <td>Eyelet Distance</td>
                 <td><?=round($wind->getEyeletDistance(), $wind->sig_figures)?> meters</td>
-            </tr>          
+            </tr>        
+            <tr>
+                <td>Eyelet Height</td>
+                <td><?=round($wind->getEyeletHeight(), $wind->sig_figures)?> meters</td>
+            </tr>     
+            <tr>
+                <td>Transition Start Wind</td>
+                <td><?=round($wind->getTransitionStartWind(), $wind->sig_figures)?> degrees</td>
+            </tr>     
+            <tr>
+                <td>Transition End Wind</td>
+                <td><?=round($wind->getTransitionEndWind(), $wind->sig_figures)?> degrees</td>
+            </tr>              
             <tr>
                 <td>Carbon Fiber Laydown Angle</td>
                 <td><?=$wind->getCFAngle()?> degrees</td>
@@ -91,7 +105,7 @@ $wind->generateGCodes();
             </tr>
             <tr>
                 <td>Total Tube Length</td>
-                <td><?=round($wind->getTubeLength(), $wind->sig_figures)?> meters</td>
+                <td><?=round($wind->getTotalTubeLength(), $wind->sig_figures)?> meters</td>
             </tr>
             <tr>
                 <td>Ideal Advance of CF Thread after integer rotations</td>
@@ -104,14 +118,9 @@ $wind->generateGCodes();
             <tr>
                 <td>Actual Advance ANGLE of Mandrel after integer rotations</td>
                 <td><?=round($wind->actualCFAdvancementAngle(), $wind->sig_figures)?></td>
-            </tr>    
-            
+            </tr>               
             <tr>
-                <td>Calculated X Travel distance Ratio</td>
-                <td><?=round($wind->calculateXTravelRatio(), $wind->sig_figures)?> </td>
-            </tr>              
-            <tr>
-                <td>Length of CF required for ONE pass (left to right only)</td>
+                <td>APPROX Length of CF required for ONE pass (left to right only)</td>
                 <td><?=round($wind->calculateCFMetersOnePass(), $wind->sig_figures)?> meters</td>
             </tr>            
             <tr>
@@ -131,24 +140,6 @@ $wind->generateGCodes();
                 <td>Transition X distance (meters)</td>
                 <td><?=round($wind->getTotalXTransitionDistance(), $wind->sig_figures)?> meters</td>
             </tr>  
-<!--            
-            <tr>
-                <td>Transition S distance (degrees)</td>
-                <td><?=round($wind->getTotalYTransitionDistance(), $wind->sig_figures)?> degrees</td>
-            </tr>           
-            <tr>
-                <td>Transition Arc Factor (dimensionless)</td>
-                <td><?=round($wind->getTransitionArcFactor(), $wind->sig_figures)?></td>
-            </tr>    
-            <tr>
-                <td>Transition Arc Length (meters)</td>
-                <td><?=round($wind->getTransitionLength(), $wind->sig_figures)?> meters</td>
-            </tr>             
-            <tr>
-                <td>Transition Radius (meters)</td>
-                <td><?=round($wind->getTransitionRadius(), $wind->sig_figures)?> meters</td>
-            </tr>   
--->
             <tr>
                 <td>Straight Section - X Distance (meters)</td>
                 <td><?=round($wind->calculateStraightXLength(), $wind->sig_figures)?> meters</td>
@@ -173,6 +164,7 @@ $wind->generateGCodes();
         print $wind->getGcodesCount() . "<br />";
         $wind->printGCodes();
         
+        $file  = "/tmp/gcode.ngc";
         $wind->printGCodesToFile($file);
         
         $wind->printGCodesToFile();

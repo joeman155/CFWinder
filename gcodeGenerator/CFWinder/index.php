@@ -35,21 +35,33 @@ USE AT YOUR OWN RISK.
                        Distance from mandrel surface to eyelet (meters)
                     </td>
                     <td>
-                        <input type="text" name="eyeletDistance" value="0.33" />
+                        <input type="text" name="eyeletDistance" value="0.005" />
                     </td>
                 </tr>                           
+                <tr>
+                    <td>
+                       Height of eyelet above Mandrel center-line (meters)
+                    </td>
+                    <td>
+                        <input type="text" name="eyeletHeight" value="0.014" />
+                    </td>
+                </tr>                  
             <tr>
                 <td>Carbon Fiber Laydown Angle (degrees)</td>
                 <td><input type="text" name="cf_angle" value="45" /></td>
             </tr>          
             <tr>
                 <td>Additional Wind each end (degrees)</td>
-                <td><input type="text" name="extra_spindle_turn" value="0" /></td>
+                <td><input type="text" name="extra_spindle_turn" value="120" /></td>
             </tr>         
             
             <tr>
+                <td>Transition Start Wind Angle (degrees)</td>
+                <td><input type="text" name="transition_start_wind" value="120" /></td>
+            </tr>               
+            <tr>
                 <td>Transition End Wind Angle (degrees)</td>
-                <td><input type="text" name="transition_end_wind" value="360" /></td>
+                <td><input type="text" name="transition_end_wind" value="120" /></td>
             </tr>               
             <tr>
                 <td>Straight Feed Rate (mm/min)</td>
