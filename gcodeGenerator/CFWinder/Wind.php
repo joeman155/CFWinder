@@ -23,6 +23,8 @@ class Wind {
     private $spindle_direction;               // Direction the spindle spins. Clockwise is default = +1
     private $transition_end_wind;             // How much wind mandrel at end of pass.
     private $transition_start_wind;           // Meters we start off into wind
+    
+    private $optimum_z_angle;                 // The optimum angle for the cf_angle required...to minimize CF width reduction.
 
     
     // Self-imposed limits
@@ -596,12 +598,13 @@ class Wind {
     {
         $step_size = $mandrel_angle / $steps;
         $cf_distance = $this->vectorLength($v3);
+        $x_distance = $v3[0];
         
         for ($i = 0; $i <= $steps; $i++) {
             $y = $i * $step_size;
             $z = $this->leadOutDistance($start_lead_distance, $y * pi()/180, $cf_distance);
             
-            $cf_vector[0] = $cf_distance;
+            $cf_vector[0] = $x_distance;
             $cf_vector[1] = $v3[1];
             $cf_vector[2] = $z;
                      
@@ -694,12 +697,13 @@ class Wind {
     {
         $step_size = $mandrel_angle / $steps;
         $cf_distance = $this->vectorLength($v3);
+        $x_distance = $v3[0];
         
         for ($i = 0; $i <= $steps; $i++) {
             $y = $i * $step_size;
             $z = $this->leadInDistance($start_lead_distance, $y * pi()/180, $cf_distance);
             
-            $cf_vector[0] = $cf_distance;
+            $cf_vector[0] = $x_distance;
             $cf_vector[1] = $v3[1];
             $cf_vector[2] = $z;
                      
@@ -728,12 +732,23 @@ class Wind {
             $this->transition_in_schedule[$i]['s_angle']  = $y;
             $this->transition_in_schedule[$i]['z_angle']  = $z_axis_angle;
             $this->transition_in_schedule[$i]['cf_angle'] = $cf_angle;
-  
-                    
+   
         }
     
     }
 
+    public function deriveOptimumCFAngle ($v3, $z_distance) 
+    {
+        $v3[2] = $z_distance;
+        $v3[0] = 0;
+        
+        $v = $this->vectorUnit($v3);
+        
+        return acos($v[1]) * 180 / pi();
+    }
+    
+
+    
     
     
     public function generatePass() {
@@ -843,7 +858,7 @@ class Wind {
         # Max Speed
         $x_travel = $direction * ($this->getTubeLength() - $this->calculateLeadDistance());
         $s_travel = $this->wind_angle_per_pass;
-        $z_travel = 0;  // No change to Z axis
+        $z_travel = $this->getSpindleDirection() * $direction * ($this->optimum_z_angle - abs($this->current_z));  // work out how much further to rotate from current position to get to optimum angle.
         $feedrate = $this->straight_feed_rate;
         $this->generateXYCode($x_travel, $s_travel, $z_travel, $feedrate);
    
@@ -1048,16 +1063,21 @@ class Wind {
         print "Z component: " . $z_component . "<br />";
         
         
+        // Work out 'optimum' angle for this
+        $this->optimum_z_angle = $this->deriveOptimumCFAngle($v3, $z_component);
+        print "Optimum z Angle: " . $this->optimum_z_angle . "<br/>"; 
+         
+        
         // Generate transistion data for END of Pass
         print "IN <br />";
         $this->generateInPoints($this->transition_start_wind, 10, $z_component, $v3);
-        print("<pre>".print_r($this->transition_in_schedule,true)."</pre>");
+        // print("<pre>".print_r($this->transition_in_schedule,true)."</pre>");
         
         
         // Generate transistion data for START of Pass
         print "OUT <br />";
         $this->generateOutPoints($this->transition_end_wind, 10, $z_component, $v3);
-        print("<pre>".print_r($this->transition_out_schedule,true)."</pre>");        
+        // print("<pre>".print_r($this->transition_out_schedule,true)."</pre>");        
         
         
         

@@ -65,6 +65,10 @@ $wind->generateGCodes();
             <tr>
                 <td>Transition End Wind</td>
                 <td><?=round($wind->getTransitionEndWind(), $wind->sig_figures)?> degrees</td>
+            </tr>
+            <tr>
+                <td>Extra Spindle Turn</td>
+                <td><?=round($extra_spindle_turn, $wind->sig_figures)?> degrees</td>
             </tr>              
             <tr>
                 <td>Carbon Fiber Laydown Angle</td>
