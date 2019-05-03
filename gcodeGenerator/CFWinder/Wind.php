@@ -34,7 +34,7 @@ class Wind {
     private $transition_feed_rate;            // Feed rate of the transition
     
     
-    private $fudge_factor = 1.00;              // Trying to reduce chance of SLIP.  IT is basically a fudge factor which acknowledges errors in measuring and the whole system.
+    private $fudge_factor = 1.20;              // Trying to reduce chance of SLIP.  IT is basically a fudge factor which acknowledges errors in measuring and the whole system.
                                               // We increase the angle by which we advance the Z-axis by a little. At present this is NOT used during transition at end of pass.
 
     
@@ -650,11 +650,10 @@ class Wind {
          for ($i = 1; $i < $move_len; $i++) {
              $feedrate  = $this->transition_in_schedule[$i]['feedrate'];  // Use the END feedrate
              $s_travel  = $this->transition_in_schedule[$i]['s_angle'] - $this->transition_in_schedule[$i-1]['s_angle'];   // Use the difference in angle
-             $z_angle   = $this->transition_in_schedule[$i]['z_angle'];   // Use the END z-angle
+             $z_angle   = ($this->transition_in_schedule[$i-1]['z_angle'] + $this->transition_in_schedule[$i]['z_angle'])/2;   // Use the END z-angle
              $cf_angle  = $this->transition_in_schedule[$i]['cf_angle'];  // USe the END cf_angle
              
              $x_travel = $this->calculateXTravelMeters($s_travel);
-             
              
              $this->transition_in_move[$i-1]['feedrate'] = $feedrate;
              $this->transition_in_move[$i-1]['s_travel'] = $s_travel;
@@ -674,11 +673,9 @@ class Wind {
          for ($i = 0; $i < $move_len-1; $i++) {
              $feedrate = $this->transition_out_schedule[$i]['feedrate'];  // Use the END feedrate
              $s_travel  = $this->transition_out_schedule[$i+1]['s_angle'] - $this->transition_out_schedule[$i]['s_angle'];  // Use the difference in angle
-             $z_angle  = $this->transition_out_schedule[$i]['z_angle'];    // Use the START z_angle
-             
+             $z_angle  = ($this->transition_out_schedule[$i]['z_angle'] + $this->transition_out_schedule[$i+1]['z_angle'])/2;    // Use the START z_angle
              
              $cf_angle = $this->transition_out_schedule[$i]['cf_angle'];  // USe the START cf_angle
-             
              
              $this->transition_out_move[$i]['feedrate'] = $feedrate;
              $this->transition_out_move[$i]['s_travel']  = $s_travel;
@@ -686,7 +683,6 @@ class Wind {
              $this->transition_out_move[$i]['cf_angle'] = $cf_angle;
              $this->transition_out_move[$i]['x_travel'] = 0;
          }         
-         
 
      }
      
@@ -715,8 +711,6 @@ class Wind {
             $cf_vector[1] = $v3[1];
             $cf_vector[2] = $z;
                      
-//            print "Mandrel Angle: " . $y . ", cf_vector = (" . $cf_vector[0] . ", " . $cf_vector[1] . ", " . $cf_vector[2] . ")" . "<br/>";
-
             $cf_vector = $this->vectorUnit($cf_vector);
             
 //            print "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; UNIT Mandrel Angle: " . $y . ", cf_vector = (" . $cf_vector[0] . ", " . $cf_vector[1] . ", " . $cf_vector[2] . ")" . "<br/>";
@@ -726,11 +720,7 @@ class Wind {
             $new_vector[1] = $cf_vector[1];
             $new_vector[2] = $cf_vector[2];
             $new_vector    = $this->vectorUnit($new_vector);
-            $z_axis_angle  = acos($new_vector[1]) * 180 / pi();
-//            print "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; UNIT POINTING Angle: " . $y . ", $new_vector = (" . $new_vector[0] . ", " . $new_vector[1] . ", " . $new_vector[2] . ")" . "<br/>";
-//            print "z_axis_angle: " . $z_axis_angle . "<br />";                      
-//            print "<br />";
-            
+            $z_axis_angle  = acos($new_vector[1]) * 180 / pi();           
             
             // Work out angle of filament with resepect to the Mandrel axis which is the Z axis (cf_angle)
             $cf_angle = acos($cf_vector[2]) * 180 / pi();
@@ -784,14 +774,7 @@ class Wind {
             $this->generateYCode($s_travel, $z_angle, $feedrate); 
         }
         
-/*        
-        // Do a transition - still go for 45 degrees, but we need to do this, so we can start to turn the Z-axis in time.
-        $x_travel = $direction * $this->calculateXTravelMeters ($this->transition_start_wind);
-        $s_travel = $this->transition_start_wind;
-        $z_travel = $direction * $this->getSpindleDirection() * $this->cf_angle;
-        $feedrate = $this->transition_feed_rate + 97;
-        $this->generateXYCode($x_travel, $s_travel, $z_travel, $feedrate);     
-*/
+
         
         // Do the Transition
         foreach ($this->transition_in_move as $key => $value) {
@@ -806,59 +789,10 @@ class Wind {
             $x_travel = $direction * $x_travel;
 
             // Work out how far to rotate the z-axis
-            $z_angle = $this->getSpindleDirection() * $direction * $z_angle;
-
-
-            // print "x_travel, s_angle, z_angle= " . $x_travel . ", " . $s_angle . ", " . $z_angle . "<br />";
-            
+            $z_angle = $this->getSpindleDirection() * $direction * $z_angle;          
 
             $this->generateXYCode($x_travel, $s_travel, $z_angle, $feedrate);            
         }
-        
-        
-        
-        /*
-        $lead_distance = 0;
-        foreach ($this->transition_schedule as $key => $value) {
-
-            if (isset($cf_angle)) {
-                $cf_angle_prev = $cf_angle;
-            } else {
-                $cf_angle_prev = 90;
-            }
-
-
-            
-            $y_travel_prev = $y_travel;
-            $cf_angle = $value['cf_angle'];
-            $s_angle =  $value['s_angle'];
-            $feedrate = $value['feedrate'];
-            $z_angle  = $value['z_angle'];
-            $x_travel = $value['x_travel'];
-            // $feedrate = $this->transition_feed_rate;
-
-
-            // The s_travel == s_angle
-            $s_travel = $s_angle;
-
-            // Because we already lead it, we don't need to move as far horizontally
-            $x_travel = $direction * $x_travel;
-             
-            // Calculate the distance in meters that the y-axis moves
-            $y_travel = $this->mandrelRadius * ($s_angle * pi()/180);
-
-            // Work out how far to rotate the z-axis
-            $z_travel = $this->getSpindleDirection() * $direction * $z_angle;
-
-
-            // print "x_travel, s_angle, z_angle= " . $x_travel . ", " . $s_angle . ", " . $z_angle . "<br />";
-            
-
-            $this->generateXYCode($x_travel, $s_travel, $z_travel, $feedrate);
-        }
-        */
-        
-        
         
         
         # Max Speed
@@ -890,15 +824,6 @@ class Wind {
         $feedrate = $this->transition_feed_rate;
         $this->generateYCode($s_travel, $z_angle, $feedrate);
         
-        
-        /*
-        $s_travel = $this->transition_end_wind;
-        $z_travel = -$direction * $this->getSpindleDirection() * $this->cf_angle;
-        $feedrate = $this->transition_feed_rate + 97;
-        $this->generateYCode($s_travel, $z_travel, $feedrate);        
-         * 
-         */
-
     }
     
     
@@ -1081,13 +1006,13 @@ class Wind {
         // Generate transistion data for END of Pass
         // print "IN <br />";
         $this->generateInPoints($this->transition_start_wind, $this->transition_steps_in, $z_component, $v3);
-        // print("<pre>".print_r($this->transition_in_schedule,true)."</pre>");
+        print("<pre>".print_r($this->transition_in_schedule,true)."</pre>");
         
         
         // Generate transistion data for START of Pass
         // print "OUT <br />";
         $this->generateOutPoints($this->transition_end_wind, $this->transition_steps_out, $z_component, $v3);
-        // print("<pre>".print_r($this->transition_out_schedule,true)."</pre>");        
+        print("<pre>".print_r($this->transition_out_schedule,true)."</pre>");        
         
         
         
