@@ -24,6 +24,7 @@ class Wind {
     private $lead_distance;                   // The maximum distance by which the dispenser will lead the Mandrel/CF contact.
     private $transition_start_length;         // Length of IN transition distance (position of the carriage)
     private $transition_end_length;           // This is just the Lead distance, but we define it to out of clarity.
+    private $tube_start;                      // Array of transition_Start_length - so we can display start of MAIN section of tube.
     
     
     private $optimum_z_angle;                 // The optimum angle for the cf_angle required...to minimize CF width reduction.
@@ -110,6 +111,11 @@ class Wind {
         $this->transition_feed_rate = $transition_feed_rate;
         $this->straight_feed_rate   = $straight_feed_rate;
 
+    }
+    
+    
+    public function getTubeStart($layer) {
+        return $this->tube_start[$layer];
     }
     
     public function getLayers() {
@@ -553,6 +559,7 @@ class Wind {
      public function createInMoveTransitionSchedule($layer) {
          
          $move_len = count($this->transition_in_schedule);
+         $this->transition_start_length = 0;
          for ($i = 1; $i < $move_len; $i++) {
              $feedrate  = $this->transition_in_schedule[$i]['feedrate'];  // Use the END feedrate
              $s_travel  = $this->transition_in_schedule[$i]['s_angle'] - $this->transition_in_schedule[$i-1]['s_angle'];   // Use the difference in angle
@@ -570,6 +577,8 @@ class Wind {
              
              $this->transition_start_length = $this->transition_start_length + $x_travel;
          }
+         
+         $this->tube_start[$layer] = $this->transition_start_length;
      }
     
      

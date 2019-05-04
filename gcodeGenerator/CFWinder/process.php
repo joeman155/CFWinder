@@ -106,7 +106,7 @@ $wind->generateGCodes();
             <table border="1">
                 <tr>
                     <th>Layer #</th>
-                    <th>Carbon Fiber<br /> Laydown Angle (deg)</th>
+                    <th>Laydown Angle (deg)</th>
                     <th>Wind angle per<br /> pass (deg)</th>
                     <th>Additional Wind<br /> each end (deg)</th>
                     <th>Transition Start<br /> Wind Angle (deg)</th>
@@ -114,7 +114,7 @@ $wind->generateGCodes();
                     <th># of passes to cover mandrel</th>
                     <th>Total Length (mm)</th>
                     <th>Useful Length (mm)</th>
-
+                    <th>Start of Usable Tube (mm)</th>
                 </tr>          
                 <?
                 for ($layer = 0; $layer < count($wind->getLayers()); $layer++) {
@@ -129,6 +129,7 @@ $wind->generateGCodes();
                     <td><?=$wind->calculatePassesToCoverMandrel($layer)?></td>
                     <td><?=round(1000 * $wind->getTotalTubeLength($layer), 1)?></td>
                     <td><?=round(1000 * $wind->getTubeLength($layer), 1)?></td>
+                    <td><?=round(1000 * $wind->getTubeStart($layer), 1)?></td>
                 </tr>         
                 <?
                 }
