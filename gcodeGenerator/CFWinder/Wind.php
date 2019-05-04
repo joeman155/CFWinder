@@ -15,14 +15,16 @@ class Wind {
     private $mandrelRadius;                   // Radius of Mandrel - meters
     private $eyeletDistance;                  // Perpendicular distance from mandrel surface to eyelet dispensing CF.
     private $eyeletHeight;                    // Height above Mandrel center
-    private $cf_angle;                        // Angle at which we wind the Carbon Fiber - Degrees
-    private $wind_angle_per_pass;             // Degrees - the offset from the starting point
+
     private $cf_width;                        // Width of fiber in Meters
-    private $extra_spindle_turn;              // Extra angle we turn the tube when we get to the end.
     private $straight_feed_rate;              // Rate of laydown of CF during straight sections.
     private $spindle_direction;               // Direction the spindle spins. Clockwise is default = +1
-    private $transition_end_wind;             // How much wind mandrel at end of pass.
-    private $transition_start_wind;           // Meters we start off into wind
+    
+    private $layers;                          // Information to describe how to build each layer
+    private $lead_distance;                   // The maximum distance by which the dispenser will lead the Mandrel/CF contact.
+    private $transition_start_length;         // Length of IN transition distance (position of the carriage)
+    private $transition_end_length;           // This is just the Lead distance, but we define it to out of clarity.
+    
     
     private $optimum_z_angle;                 // The optimum angle for the cf_angle required...to minimize CF width reduction.
     private $transition_steps_in = 15;           // How many steps to break the transition into.
@@ -34,9 +36,10 @@ class Wind {
     private $transition_feed_rate;            // Feed rate of the transition
     
     
-    private $fudge_factor = 1.20;              // Trying to reduce chance of SLIP.  IT is basically a fudge factor which acknowledges errors in measuring and the whole system.
+    private $fudge_factor = 1.0;              // Trying to reduce chance of SLIP.  IT is basically a fudge factor which acknowledges errors in measuring and the whole system.
                                               // We increase the angle by which we advance the Z-axis by a little. At present this is NOT used during transition at end of pass.
 
+    
     
     
     private $current_x;                     // Units are mm - This is the train
@@ -61,109 +64,40 @@ class Wind {
     private $transition_out_move;
     
     
-    /*
-    private $transition_schedule = [
-            0 => ['feedrate'  => 1000,
-                  'cf_angle'  => 77.9,
-                  's_angle'   => 6.5,
-                  'z_angle'   => 12.06],
-            1 => ['feedrate'  => 1001,
-                  'cf_angle'  => 70.3,
-                  's_angle'   => 12,
-                  'z_angle'   => 19.72],
-            2 => ['feedrate'  => 1002,
-                  'cf_angle'  => 62.6,
-                  's_angle'   => 19.75,
-                  'z_angle'   => 23.377],
-            3 => ['feedrate'  => 1003,
-                  'cf_angle'  => 54.6,
-                  's_angle'   => 33.75,
-                  'z_angle'   => 35.44],
-            4 => ['feedrate'  => 1004,
-                  'cf_angle'  => 50.14,
-                  's_angle'   => 49.25,
-                  'z_angle'   => 39.9],
-            5 => ['feedrate'  => 1005,
-                  'cf_angle'  => 47.3,
-                  's_angle'   => 71.5,
-                  'z_angle'   => 42.8],
-            6 => ['feedrate'  => 1006,
-                  'cf_angle'  => 46.2,
-                  's_angle'   => 90,
-                  'z_angle'   => 43.83]        
-    ];
-    */
-    
-    private $transition_schedule = [
-            0 => ['feedrate'  => 1000,
-                  'cf_angle'  => 77.9,
-                  's_angle'   => 6.5,
-                  'z_angle'   => 12.06,
-                  'x_travel'  => 0.00433],
-            1 => ['feedrate'  => 1001,
-                  'cf_angle'  => 70.3,
-                  's_angle'   => 5.5,
-                  'z_angle'   => 7.656,
-                  'x_travel'  => 0.0037],
-            2 => ['feedrate'  => 1002,
-                  'cf_angle'  => 62.6,
-                  's_angle'   => 7.75,
-                  'z_angle'   => 7.657,
-                  'x_travel'  => 0.0052],
-            3 => ['feedrate'  => 1003,
-                  'cf_angle'  => 54.6,
-                  's_angle'   => 14,
-                  'z_angle'   => 8.064,
-                  'x_travel'  => 0.00933],
-            4 => ['feedrate'  => 1004,
-                  'cf_angle'  => 50.14,
-                  's_angle'   => 15.5,
-                  'z_angle'   => 4.464,
-                  'x_travel'  => 0.01033],
-            5 => ['feedrate'  => 1005,
-                  'cf_angle'  => 47.3,
-                  's_angle'   => 22.25,
-                  'z_angle'   => 2.8836,
-                  'x_travel'  => 0.01483],
-            6 => ['feedrate'  => 1006,
-                  'cf_angle'  => 46.2,
-                  's_angle'   => 18.5,
-                  'z_angle'   => 2.22114,
-                  'x_travel'  => 0.01233]        
-    ];
 
 // s_angle is the change each time ... Total of s_angle is 90 degrees 
-// z_angle is the change each time
+// z_angle is the absolute angle
 // x_travel is the absolute position.
 // cf_angle is the ABSOLUTE angle
     
 
-    public function __construct($mandrelRadius, $eyeletDistance, $eyeletHeight, $cf_angle, $wind_angle_per_pass, $cf_width,
-                                $extra_spindle_turn, $transition_feed_rate, $straight_feed_rate, $spindle_direction, 
-                                $transition_start_wind, $transition_end_wind, $start_x=0,  $start_s=0, $start_z=0) {
+    public function __construct($mandrelRadius, $eyeletDistance, $eyeletHeight, $cf_width, $transition_feed_rate, $straight_feed_rate,
+                                $spindle_direction, $start_x=0,  $start_s=0, $start_z=0,
+                                $layers) {
         
         
         
-        $this->cf_angle            = $cf_angle;
+        // Basic dimensions of set-up        
         $this->eyeletDistance      = $eyeletDistance;
         $this->eyeletHeight        = $eyeletHeight;
         $this->mandrelRadius       = $mandrelRadius;
-        $this->wind_angle_per_pass = $wind_angle_per_pass;
         $this->cf_width            = $cf_width;
-        $this->extra_spindle_turn  = $extra_spindle_turn;
-        $this->straight_feed_rate  = $straight_feed_rate;
         $this->spindle_direction   = $spindle_direction;
-        $this->transition_end_wind = $transition_end_wind;
-        $this->transition_start_wind = $transition_start_wind;
+        
+        // Layers we want to create
+        $this->layers              = $layers;
         
         
+        // Starting position
         $this->start_x = $start_x;
         $this->start_s = $start_s;
         $this->start_z = $start_z;
         
+        // Variables to track current location
         $this->current_x = $start_x;
         $this->current_s = $start_s;
         $this->current_z = $start_z;
+        
         
         $this->gcodes = array();
         
@@ -174,10 +108,17 @@ class Wind {
         
         
         $this->transition_feed_rate = $transition_feed_rate;
+        $this->straight_feed_rate   = $straight_feed_rate;
 
     }
-   
     
+    public function getLayers() {
+        return $this->layers;
+    }
+   
+    public function getOptimumZAngle() {
+        return $this->optimum_z_angle;
+    }
     
     public function getTransitionStartWind() {
         return $this->transition_start_wind;
@@ -204,12 +145,12 @@ class Wind {
              return $this->cf_weight_per_meter * $this->calculateActualCFLengthRequiredOneLayer();
     }  
     
-    public function getWindAnglePerPass() {
-             return $this->wind_angle_per_pass;
+    public function getWindAnglePerPass($layer) {
+             return $this->layers[$layer]['wind_angle_per_pass'];
     }
     
-    public function getCFAngle() {
-             return $this->cf_angle;
+    public function getCFAngle($layer) {
+             return $this->layers[$layer]['cf_angle'];
     }
     
     public function getCFWidth() {
@@ -240,43 +181,45 @@ class Wind {
     
 
     
+    
+    /* 
+     * 
+     * This is length of tube for where the tube is EXACTLY wound at the desired cf_angle
+     * 
+     */
+    public function getTubeLength($layer) {
+        return ($this->getWindAnglePerPass($layer)* pi()/180) * $this->mandrelRadius/ tan(pi() * $this->getCFAngle($layer)/180);
+    }
+    
+
+
     /*
      * getTotalTubeLength 
      * 
-     * Get the total tube length
+     * Get the total tube length...which is the total X-movement of the carriage
+     * 
      */
-    public function getTotalTubeLength() {
-        return $this->getTubeLength() + $this->startTransitionXDistance();
-    }
-    
-    
-    /* 
-     * This is length of tube EXCEPT for the beginning transition
-     */
-    public function getTubeLength() {
-        return ($this->wind_angle_per_pass * pi()/180) * $this->mandrelRadius/ tan(pi() * $this->cf_angle/180);
-    }
-    
-    
-   /* 
-     * This is tube without the transitions - the useful section.
-     */
-    public function getUsefulTubeLength() {
-        return  $this->getTubeLength() - $this->getTotalXTransitionDistance();
+    public function getTotalTubeLength($layer) {
+        return $this->getTubeLength($layer) + $this->startTransitionXDistance($layer);
     }
 
     
     /*
      * Return total length of transitions
      * 
-     * It is approximately equal to the lead distance
-     * +
-     * distance for the START transition.
+     * Think about this carefully...the startTransitionXDistance is the distance of the carriage
+     * 
+     * at the end of getTotalXTransitionDistance, the carriage leads the CF/Mandrel by the LEAD distance
+     * 
+     * So the TRANSITION distance at beginning is getTotalXTransitionDistance - lead_distance
+     * 
+     * The END transition distance is JUST the lead_distance
+     * 
+     * SO, the TOTAL transition length is getTotalXTransitionDistance - lead_distance + lead_distance = getTotalXTransitionDistance
      * 
      */
-    public function getTotalXTransitionDistance() {
-        $length = $this->startTransitionXDistance() + $this->calculateLeadDistance();  
-        return $length;
+    public function getTotalXTransitionDistance($layer) {
+        return $this->startTransitionXDistance($layer); //  - $this->lead_distance + $this->lead_distance;
     }
     
     
@@ -284,50 +227,56 @@ class Wind {
      * This is the distance we need to advance (meters) tangentially to ensure
      * there is no gap and no overlap of the CF fiber.
      */
-    public function idealCFAdvancement() {
-        return $this->cf_width /cos($this->cf_angle * pi()/180);
+    public function idealCFAdvancement($layer) {
+        return $this->cf_width /cos($this->getCFAngle($layer) * pi()/180);
     }
     
-    public function actualCFAdvancement() {
-        return $this->getMandrelCircumference() / $this->calculatePassesToCoverMandrel();
+    public function actualCFAdvancement($layer) {
+        return $this->getMandrelCircumference() / $this->calculatePassesToCoverMandrel($layer);
     }    
     
-    public function actualCFAdvancementAngle() {
-        return round(360 * $this->actualCFAdvancement() /$this->getMandrelCircumference(),3);
+    public function actualCFAdvancementAngle($layer) {
+        return round(360 * $this->actualCFAdvancement($layer) /$this->getMandrelCircumference(),3);
     }   
  
     
-    public function calculateSurfaceArea() {
-        return pi() * 2 * $this->mandrelRadius * $this->getUsefulTubeLength();  // Changed to useful length
+    public function calculateSurfaceArea($layer) {
+        return pi() * 2 * $this->mandrelRadius * $this->getTubeLength($layer);  // Changed to useful length
     }
     
     /*
-     * This is length of CF for one pass.
+     * This is length of CF for one LAYER
+     * .
      * NOTE, we need go X times in one direction and X times in the other direction. So...one could 
      *       say we actually do two layers in ONE pass.
      * 
      * NOTE: This does NOT take into account the transitional areas, where CF is unfortunately wasted
+     * 
+     * i.e. the goal here is to work out how much CF area to cover CENTRAL area of tube, not transitions
      */
-    public function calculateCFLengthRequiredOneLayer() {
-        return 2 * $this->calculateSurfaceArea()/ $this->cf_width;
+    public function calculateCFLengthRequiredOneLayer($layer) {
+        return 2 * $this->calculateSurfaceArea($layer)/ $this->cf_width;
     }
     
-    public function calculateActualCFLengthRequiredOneLayer() {
+    
+    public function calculateActualCFLengthRequiredOneLayer($layer) {
         // PER PASS
         
         // We multiple by 2 (two) at beginning because we actually do TWO layers...one from left and one from right.
-        return 2 * $this->calculatePassesToCoverMandrel() * $this->calculateCFMetersOnePass();
+        return 2 * $this->calculatePassesToCoverMandrel($layer) * $this->calculateCFMetersOnePass($layer);
     }    
 
     
     /*
-     * calculate startTransitionXDistance()
+     * calculate startTransitionXDistance($layer)
      * 
      * Calculate how far we move the carriage for the START transition
      */
     public function startTransitionXDistance()
     {
-      return $this->calculateXTravelMeters($this->transition_start_wind);
+      // return $this->calculateXTravelMeters($this->layers[$layer]['transition_start_wind'], $this->getCFAngle($layer));
+      // return $this->layers[$layer]['transition_start_length'];
+        return $this->transition_start_length;
     }
     
     /* 
@@ -336,9 +285,9 @@ class Wind {
      * Calcualte the length of tube with NO transitions
      * 
      */
-    public function calculateStraightXLength()
+    public function calculateStraightXLength($layer)
     {
-        return $this->getTubeLength() - $this->calculateLeadDistance();
+        return $this->getTubeLength($layer) - $this->calculateLeadDistance();
     }
     
     /* 
@@ -368,10 +317,10 @@ class Wind {
     /* 
      * This calcualtes CF for just one pass from left to right. It includes transitions 
      */
-    public function calculateCFMetersOnePass() {
+    public function calculateCFMetersOnePass($layer) {
         
-        if ($this->extra_spindle_turn > 0) {
-            $extra_spindle_turn_distance = (pi()/180) * $this->extra_spindle_turn * $this->mandrelRadius;
+        if ($this->layers[$layer]['extra_spindle_turn'] > 0) {
+            $extra_spindle_turn_distance = (pi()/180) * $this->layers[$layer]['extra_spindle_turn'] * $this->mandrelRadius;
         } else {
             $extra_spindle_turn_distance = 0;
         }
@@ -379,15 +328,15 @@ class Wind {
         $begin_transition_length = 0;   // TODO
         $end_transition_length   = 0;   // TODO
         
-        return  $begin_transition_length + $this->calculateStraightXLength() + $end_transition_length + $extra_spindle_turn_distance; 
+        return  $begin_transition_length + $this->calculateStraightXLength($layer) + $end_transition_length + $extra_spindle_turn_distance; 
     }
     
     
     /* 
-     * This calcualtes CF for just the straight section (not including transition)
+     * This calculates length of CF for just the straight section (not including transitions)
      */
-    public function calculateCFMetersOnePassStraight() {
-        return $this->getUsefulTubeLength() / cos(pi() * $this->cf_angle/180);  // Changed to Useful Tube Length
+    public function calculateCFMetersOnePassStraight($layer) {
+        return $this->getTubeLength($layer) / cos(pi() * $this->getCFAngle($layer)/180);  // Changed to Useful Tube Length
     }
     
     /* 
@@ -398,40 +347,11 @@ class Wind {
      *       For the transition area, we expect the CF to be slightly thicker.
      * 
      */
-    public function calculatePassesToCoverMandrel() {
-        return ceil(($this->calculateCFLengthRequiredOneLayer()/2) / $this->calculateCFMetersOnePassStraight());
+    public function calculatePassesToCoverMandrel($layer) {
+        return ceil(($this->calculateCFLengthRequiredOneLayer($layer)/2) / $this->calculateCFMetersOnePassStraight($layer));
     }
-    
-    /*
-     * Given the X travel to take place, we want to calculate how far to rotate the Spindle (y-axis)
-     * 
-     * Results is in degrees
-     * 
-     */
-    public function calculateYTravel($x_travel, $cf_angle) {
-        
-        if (isset($cf_angle)) {
-            $cf_angle_use = $cf_angle;
-        } else {
-            $cf_angle_use = $this->cf_angle;
-        }
        
-       $s_travel = abs($x_travel) * 180 * tan($cf_angle_use * pi()/180)/(pi() * $this->mandrelRadius);
-       
-       return $s_travel;    
-    }
-    
-    /*
-     * Given the Y travel distance (m) to take place, we want to calculate how far to rotate the Spindle (y-axis)
-     * 
-     * Result returned is in Degrees
-     * 
-     */
-    public function calculateYTravelDegrees($y_travel_distance) {
-       $s_travel = (180/pi()) * ($y_travel_distance / $this->mandrelRadius);
-       
-       return $s_travel;    
-    }
+   
     
     /*
      * Given the Y travel distance (degrees) to take place, we want to calculate how far to move the carriage
@@ -439,8 +359,8 @@ class Wind {
      * Result returned is in meters
      * 
      */
-    public function calculateXTravelMeters($s_angle) {
-       return ($s_angle * pi()/180) * $this->mandrelRadius/ tan(pi() * $this->cf_angle/180);
+    public function calculateXTravelMeters($s_angle, $cf_angle) {
+       return ($s_angle * pi()/180) * $this->mandrelRadius/ tan(pi() * $cf_angle/180);
     }
     
     
@@ -455,14 +375,16 @@ class Wind {
 
         
     /*
-     * Work out the angle (x-axis) that the CF makes....to be a tangent with the Mandrel
+     * Work out the angle (y-axis) that the CF makes....to be a tangent with the Mandrel
+     * 
+     * y-axis is the Spindle axis.
      */
-    public function calculateCFXAngle() {
+    public function calculateCFYAngle() {
         $error = 1/10000;
         for ($i=0; $i< 90; $i=$i+0.1) {
             $lhs = $this->mandrelRadius;
             $rhs = sin(pi() * $i / 180) * ($this->mandrelRadius + $this->eyeletDistance) + $this->eyeletHeight * cos(pi() * $i / 180);
-           // print "Angle: " . $i . ", compare " . $lhs . " with " . $rhs . "<br />";
+           
             if (abs($rhs - $lhs) < $error) {
                 break;
             }
@@ -517,8 +439,11 @@ class Wind {
     /*
      * Calculate maximum vector (v3 with z component) ... which will represent the CF when it leads the
      * intersection with the mandrel by the greatest distance.
+     * 
+     * This is the lead distance.
+     * 
      */
-    public function deriveMaxVectorDispenserMandrel($v2) {
+    public function deriveMaxVectorDispenserMandrel($v2, $cf_angle) {
         
         $error = 0.25;
         // Start from 0 and go to 1 meter (1mm at a time)
@@ -528,22 +453,15 @@ class Wind {
             $vector[1] = $v2[1];
             $vector[2] = $i;
             
-            $len = $this->vectorLength($vector);
-
-            // print "before Vector = " . $vector[0] . " , " . $vector[1] . ", " . $vector[2] . "<br/>";
-            
+            $len = $this->vectorLength($vector);            
             
             $vector[0] = $vector[0]/$len;
             $vector[1] = $vector[1]/$len;
             $vector[2] = $vector[2]/$len;
-            
-            // print "after Vector = " . $vector[0] . " , " . $vector[1] . ", " . $vector[2] . "<br/>";
-            
+                        
             $angle = acos($vector[2]) * 180 / pi();
-            
-            // print "scaled z = " . $vector[2] . " - Comparing $angle with " . $this->cf_angle . "<br/>";
-            
-            if (abs($angle - $this->cf_angle) < $error) {
+                        
+            if (abs($angle - $cf_angle) < $error) {
                 break;
             }
         }
@@ -562,13 +480,6 @@ class Wind {
     public function leadOutDistance($start_lead_distance, $mandrel_angle, $x_distance) {
         $xf = $start_lead_distance * exp(-1 * $this->mandrelRadius/abs($x_distance) * $mandrel_angle);
      
-        /*
-        print "Mandrel Radius: " . $this->mandrelRadius . "<br/>";
-        print "X distance:     " . $x_distance . "<br />";
-        print "Start lead distance: " . $start_lead_distance . "<br />";
-        
-         * 
-         */
         
         return $xf;
     }
@@ -613,11 +524,7 @@ class Wind {
             $cf_vector[1] = $v3[1];
             $cf_vector[2] = $z;
                      
-//            print "Mandrel Angle: " . $y . ", cf_vector = (" . $cf_vector[0] . ", " . $cf_vector[1] . ", " . $cf_vector[2] . ")" . "<br/>";
-
             $cf_vector = $this->vectorUnit($cf_vector);
-            
-//            print "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; UNIT Mandrel Angle: " . $y . ", cf_vector = (" . $cf_vector[0] . ", " . $cf_vector[1] . ", " . $cf_vector[2] . ")" . "<br/>";
             
             // Work out the angle by which we rotate the filament to ensure the filament width is not compromised
             $new_vector[0] = 0;
@@ -625,10 +532,6 @@ class Wind {
             $new_vector[2] = $cf_vector[2];
             $new_vector    = $this->vectorUnit($new_vector);
             $z_axis_angle = acos($new_vector[1]) * 180 / pi();
- //           print "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; UNIT Mandrel Angle: " . $y . ", $new_vector = (" . $new_vector[0] . ", " . $new_vector[1] . ", " . $new_vector[2] . ")" . "<br/>";
- //           print "z_axis_angle: " . $z_axis_angle . "<br />";                       
-//            print "<br />";
-            
             
             // Work out angle of filament with resepect to the Mandrel axis which is the Z axis (cf_angle)
             $cf_angle = acos($cf_vector[2]) * 180 / pi();
@@ -644,8 +547,11 @@ class Wind {
     
      /*
       *  Create the actual movements required for the IN transition.
+      * 
+      * We also calculate the final X position after this transition
       */
-     public function createInMoveTransitionSchedule() {
+     public function createInMoveTransitionSchedule($layer) {
+         
          $move_len = count($this->transition_in_schedule);
          for ($i = 1; $i < $move_len; $i++) {
              $feedrate  = $this->transition_in_schedule[$i]['feedrate'];  // Use the END feedrate
@@ -653,16 +559,20 @@ class Wind {
              $z_angle   = ($this->transition_in_schedule[$i-1]['z_angle'] + $this->transition_in_schedule[$i]['z_angle'])/2;   // Use the END z-angle
              $cf_angle  = $this->transition_in_schedule[$i]['cf_angle'];  // USe the END cf_angle
              
-             $x_travel = $this->calculateXTravelMeters($s_travel);
+             $x_travel = $this->calculateXTravelMeters($s_travel, $this->layers[$layer]['cf_angle']);
              
              $this->transition_in_move[$i-1]['feedrate'] = $feedrate;
              $this->transition_in_move[$i-1]['s_travel'] = $s_travel;
              $this->transition_in_move[$i-1]['z_angle']  = $z_angle * $this->fudge_factor; 
              $this->transition_in_move[$i-1]['cf_angle'] = $cf_angle;
              $this->transition_in_move[$i-1]['x_travel'] = $x_travel;
+             
+             
+             $this->transition_start_length = $this->transition_start_length + $x_travel;
          }
      }
     
+     
      
      /*
       *  Create the actual movements required for the OUT transition.
@@ -712,9 +622,7 @@ class Wind {
             $cf_vector[2] = $z;
                      
             $cf_vector = $this->vectorUnit($cf_vector);
-            
-//            print "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; UNIT Mandrel Angle: " . $y . ", cf_vector = (" . $cf_vector[0] . ", " . $cf_vector[1] . ", " . $cf_vector[2] . ")" . "<br/>";
-            
+                        
             // Work out the angle by which we rotate the filament to ensure the filament width is not compromised
             $new_vector[0] = 0;
             $new_vector[1] = $cf_vector[1];
@@ -724,7 +632,6 @@ class Wind {
             
             // Work out angle of filament with resepect to the Mandrel axis which is the Z axis (cf_angle)
             $cf_angle = acos($cf_vector[2]) * 180 / pi();
-            
             
             $this->transition_in_schedule[$i]['feedrate'] = $this->transition_feed_rate;
             $this->transition_in_schedule[$i]['s_angle']  = $y;
@@ -749,7 +656,7 @@ class Wind {
     
     
     
-    public function generatePass() {
+    public function generatePass($layer) {
         
         $this->current_pass++; 
         
@@ -763,13 +670,13 @@ class Wind {
         // We use transision feed rates.
         if ($this->current_pass > 1 && $this->current_pass % 2 == 1) {
             $feedrate = $this->transition_feed_rate + 99;
-            $s_travel = $this->actualCFAdvancementAngle() + $this->extra_spindle_turn;
+            $s_travel = $this->actualCFAdvancementAngle($layer) + $this->layers[$layer]['extra_spindle_turn'];
             $z_angle = 0;
             $this->generateYCode($s_travel, $z_angle, $feedrate);
-        } elseif ($this->current_pass > 1 && $this->current_pass % 2 == 0 && $this->extra_spindle_turn > 0) {
+        } elseif ($this->current_pass > 1 && $this->current_pass % 2 == 0 && $this->layers[$layer]['extra_spindle_turn'] > 0) {
             // Add the SPIN at the end (if one is requested). Purpose of this is to try and maintain tension in the CF.
             $feedrate = $this->transition_feed_rate + 98;
-            $s_travel = $this->extra_spindle_turn;
+            $s_travel = $this->layers[$layer]['extra_spindle_turn'];
             $z_angle = 0;
             $this->generateYCode($s_travel, $z_angle, $feedrate); 
         }
@@ -779,28 +686,27 @@ class Wind {
         // Do the Transition
         foreach ($this->transition_in_move as $key => $value) {
             $cf_angle = $value['cf_angle'];
-            $s_travel =  $value['s_travel'];
+            $s_travel = $value['s_travel'];
             $feedrate = $value['feedrate'];
             $z_angle  = $value['z_angle'];
             $x_travel = $value['x_travel'];
             
-
             // In the transitions we ALWAYS move at speed that will allow us to get to the desired CF ANGLE
             $x_travel = $direction * $x_travel;
 
             // Work out how far to rotate the z-axis
             $z_angle = $this->getSpindleDirection() * $direction * $z_angle;          
 
-            $this->generateXYCode($x_travel, $s_travel, $z_angle, $feedrate);            
+            $this->generateXYCode($x_travel, $s_travel, $z_angle, $feedrate, $this->getCFAngle($layer));            
         }
         
         
         # Max Speed
-        $x_travel = $direction * ($this->getTubeLength() - $this->calculateLeadDistance());
-        $s_travel = $this->wind_angle_per_pass;
-        $z_angle = $this->getSpindleDirection() * $direction * $this->optimum_z_angle;  // work out how much further to rotate from current position to get to optimum angle.
+        $x_travel = $direction * ($this->getTubeLength($layer) - $this->calculateLeadDistance());
+        $s_travel = $this->getWindAnglePerPass($layer);
+        $z_angle  = $this->getSpindleDirection() * $direction * $this->optimum_z_angle;  // work out how much further to rotate from current position to get to optimum angle.
         $feedrate = $this->straight_feed_rate;
-        $this->generateXYCode($x_travel, $s_travel, $z_angle, $feedrate);
+        $this->generateXYCode($x_travel, $s_travel, $z_angle, $feedrate, $this->getCFAngle($layer));
    
         
 
@@ -811,7 +717,6 @@ class Wind {
             $feedrate = $value['feedrate'];
             $z_angle  = $value['z_angle'];
             
-
             // Work out how far to rotate the z-axis
             $z_angle = $this->getSpindleDirection() * $direction * $z_angle;
 
@@ -829,8 +734,8 @@ class Wind {
     
     
     
-    public function calculateXSpeed($feedrate, $x_travel) {
-        $x_speed = abs($feedrate/ sqrt(1 + pow($this->cf_angle/$x_travel, 2)))/60;
+    public function calculateXSpeed($feedrate, $x_travel, $cf_angle) {
+        $x_speed = abs($feedrate/ sqrt(1 + pow($cf_angle/$x_travel, 2)))/60;
         
         return $x_speed;
     }
@@ -890,7 +795,7 @@ class Wind {
      * $feedrate in mm/minute
      * 
      */
-    public function generateXYCode($x_travel, $s_travel, $z_angle, $feedrate) {
+    public function generateXYCode($x_travel, $s_travel, $z_angle, $feedrate, $cf_angle) {
                 
         // Calculate new positions
         $this->current_x = $this->current_x + $x_travel;
@@ -901,10 +806,9 @@ class Wind {
             $this->current_x = 0;
         }
         
-        // Calculate the time to do this maneuver
-        $wind_time = abs($x_travel) / $this->calculateXSpeed($feedrate, $x_travel);
+        // Calculate the time to do this maneuvere        
+        $wind_time = abs($x_travel) / $this->calculateXSpeed($feedrate, $x_travel, $cf_angle);
         
-        // print "xyWind Time: " . $wind_time . "<br/>";
         // Add to the total time 
         $this->addTime($wind_time);
         
@@ -919,12 +823,9 @@ class Wind {
         $this->current_z = $z_angle;
 
         // Calculate the time to do this maneuver
-        // $y_travel_meters = (pi()/180) * $s_travel * $this->mandrelRadius;
-        // $wind_time = abs($y_travel_meters) / $this->calculateYSpeed($feedrate, $s_travel);
         $wind_time = $s_travel / ($feedrate/60);
         
         // Add to the total time 
-        // print "yWind Time: " . $wind_time . "<br/>";
         $this->addTime($wind_time);
         
         $code_text = "G1 F" . $feedrate . " Y" . $this->generateYPosValue($this->current_s) . " Z" . $this->generateZPosValue($this->current_z);
@@ -948,8 +849,6 @@ class Wind {
      * 
      */
     public function generateGCodes() {
-       // Prepration
-       $this->calculations();
         
        // Generate Pre-Amble
         array_push($this->gcodes, "G21");
@@ -960,10 +859,17 @@ class Wind {
         array_push($this->gcodes, "G1 F6000 Z" . $this->start_z);        
         array_push($this->gcodes, "M1");
 
-
-        for ($i = 1; $i <= $this->calculatePassesToCoverMandrel() * 2; $i++) {
-          $this->generatePass();
+        // Create all the passes
+        for ($layer = 0; $layer < count($this->layers); $layer++) {
+            $this->calculations($layer);
+          
+           $this->current_pass = 0;
+           for ($i = 1; $i <= $this->calculatePassesToCoverMandrel($layer) * 2; $i++) {
+              $this->generatePass($layer);
+           }
+        
         }
+        
         
         
         
@@ -983,41 +889,48 @@ class Wind {
         fclose($fp);
     }
 
-    public function calculations() {
+    public function calculations($layer) {
         
-        $cf_angle_x = $this->calculateCFXAngle();
-        print "CF Angle X: " . $cf_angle_x . "<br/>";
+        $cf_angle_y = $this->calculateCFYAngle();
+        // print "CF Angle X: " . $cf_angle_y . "<br/>";
 
-        $v2 = $this->deriveVectorOriginMandrel($cf_angle_x);
-        print "v2 = (" . $v2[0] . ", " . $v2[1] . ", " . $v2[2] . ")" . "<br/>";
+        $v2 = $this->deriveVectorOriginMandrel($cf_angle_y);
+        // print "v2 = (" . $v2[0] . ", " . $v2[1] . ", " . $v2[2] . ")" . "<br/>";
         
-        $v3 = $this->deriveVectorDispenserMandrel($cf_angle_x);
-        print "v3 = (" . $v3[0] . ", " . $v3[1] . ", " . $v3[2] . ")" . "<br/>";
+        $v3 = $this->deriveVectorDispenserMandrel($cf_angle_y);
+        // print "v3 = (" . $v3[0] . ", " . $v3[1] . ", " . $v3[2] . ")" . "<br/>";
         
-        $z_component = $this->deriveMaxVectorDispenserMandrel($v3);
-        print "Z component: " . $z_component . "<br />";
+        $z_component = $this->deriveMaxVectorDispenserMandrel($v3, $this->layers[$layer]['cf_angle']);
+        // print "Z component: " . $z_component . "<br />";
+        
+        // $this->layers[$layer]['lead_distance']         = $z_component;
+        // $this->layers[$layer]['transition_end_length'] = $this->layers[$layer]['lead_distance'];
+        $this->lead_distance = $z_component;
+        $this->transition_end_length = $this->lead_distance;
+        
+        
         
         
         // Work out 'optimum' angle for this
         $this->optimum_z_angle = $this->deriveOptimumCFAngle($v3, $z_component);
-        print "Optimum z Angle: " . $this->optimum_z_angle . "<br/>"; 
+        // print "Optimum z Angle: " . $this->optimum_z_angle . "<br/>"; 
          
         
         // Generate transistion data for END of Pass
         // print "IN <br />";
-        $this->generateInPoints($this->transition_start_wind, $this->transition_steps_in, $z_component, $v3);
-        print("<pre>".print_r($this->transition_in_schedule,true)."</pre>");
+        $this->generateInPoints($this->layers[$layer]['transition_start_wind'], $this->transition_steps_in, $z_component, $v3);
+        // print("<pre>".print_r($this->transition_in_schedule,true)."</pre>");
         
         
         // Generate transistion data for START of Pass
         // print "OUT <br />";
-        $this->generateOutPoints($this->transition_end_wind, $this->transition_steps_out, $z_component, $v3);
-        print("<pre>".print_r($this->transition_out_schedule,true)."</pre>");        
+        $this->generateOutPoints($this->layers[$layer]['transition_end_wind'], $this->transition_steps_out, $z_component, $v3);
+        // print("<pre>".print_r($this->transition_out_schedule,true)."</pre>");        
         
         
         
         // Generate array of moves to GET the transitions done
-        $this->createInMoveTransitionSchedule();
+        $this->createInMoveTransitionSchedule($layer);
         $this->createOutMoveTransitionSchedule();
         
         
