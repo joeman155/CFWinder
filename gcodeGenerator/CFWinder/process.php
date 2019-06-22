@@ -115,6 +115,8 @@ $wind->generateGCodes();
                     <th>Total Length (mm)</th>
                     <th>Useful Length (mm)</th>
                     <th>Start of Usable Tube (mm)</th>
+                    <th>Lead Distance (mm)</th>
+                    <th>~ Length CF (mm)</th>
                 </tr>          
                 <?
                 for ($layer = 0; $layer < count($wind->getLayers()); $layer++) {
@@ -129,7 +131,9 @@ $wind->generateGCodes();
                     <td><?=$wind->calculatePassesToCoverMandrel($layer)?></td>
                     <td><?=round(1000 * $wind->getTotalTubeLength($layer), 1)?></td>
                     <td><?=round(1000 * $wind->getTubeLength($layer), 1)?></td>
-                    <td><?=round(1000 * $wind->getTubeStart($layer), 1)?></td>
+                    <td><?=round(1000 * ($wind->getTubeStart($layer) - $wind->getLeadDistance($layer)), 1)?></td>
+                    <td><?=round(1000 * $wind->getLeadDistance($layer), 1)?></td>
+                    <td><?=round(1000 * $wind->getLength($layer), 1)?></td>
                 </tr>         
                 <?
                 }
@@ -137,11 +141,18 @@ $wind->generateGCodes();
             </table>        
         
         <h1> Calculated Properties</h1>
+        <table>
+            
+            <tr>
+                <td>Winding Time</td>
+                <td><?=round($wind->getTime(), 0)?> seconds</td>
+            </tr>    
+        </table>
   TODO
         
         
         
-
+<br/><br/>
         <input type="button" value="Return to Input Page" name="return_to_input_page" onClick="location.href='index.php'"/>
         <?php
         
