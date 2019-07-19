@@ -270,6 +270,7 @@ class Wind {
      * i.e. the goal here is to work out how much CF area to cover CENTRAL area of tube, not transitions
      */
     public function calculateCFLengthRequiredOneLayer($layer) {
+        // print "For Layer : " . $layer . ", the suface area is " . $this->calculateSurfaceArea($layer) . " and the CF width is " . $this->cf_width . "<br/>"; // JOE
         return 2 * $this->calculateSurfaceArea($layer)/ $this->cf_width;
     }
     
@@ -351,6 +352,7 @@ class Wind {
      * 
      */
     public function calculatePassesToCoverMandrel($layer) {
+        // print "For layer " . $layer . ", " . $this->calculateCFLengthRequiredOneLayer($layer) . "<br/>";  // JOE
         return ceil(($this->calculateCFLengthRequiredOneLayer($layer)/2) / $this->calculateCFMetersOnePassStraight($layer));
     }
        
@@ -818,7 +820,9 @@ class Wind {
         $this->addTime($wind_time);
         
         // Update CF length.
-        $this->length[$layer] = $this->length[$layer] + $this->calculateCFLength($cf_angle, $x_travel);
+        if (! is_null($layer)) {
+           $this->length[$layer] = $this->length[$layer] + $this->calculateCFLength($cf_angle, $x_travel);
+        }
         
         $code_text = "G1 F" . $feedrate . " X" . $this->generateXPosValue($this->current_x) . " Y" . $this->generateYPosValue($this->current_s) . " Z" . $this->generateZPosValue($this->current_z);
         array_push($this->gcodes, $code_text);
@@ -895,7 +899,29 @@ class Wind {
         }
         
         
-        
+       // Rotation - basically make it spin a long time while moving Carriage back and forward with hot air-gun going
+       // First we put the hot air-gun into position
+       $x_pos =  $this->start_x + 0.170;
+       array_push($this->gcodes, "G1 F6000 X" . 1000 * $x_pos);
+       $this->current_x = $x_pos;  // We know the gun starting point is 170mm ahead of everything. So we don't heat the Motor!!
+       
+       // $this->current_s = 0;
+       // We wait for user to turn on Hot Air Gun, Cut the CF ... No more tow winding...
+       // ... and then press 'S' key to resume...
+       array_push($this->gcodes, "M1");  
+       
+       
+       // Each travel = about 20 seconds. i.e. 6000 mm/min
+       $feedrate = 6000;
+       $x_travel   = 2.050 - 0.170;  // This is the current travel distance for this mandrel
+       // $x_travel_trail = 0.17;    // 2 Meters
+       $s_travel = 1800; // 1800 degrees (i.e. 5 revolutions)
+       $z_angle = 0;     // No need to move this.
+       $cf_angle = 45;   // Middle of the range Angle
+       for ($i = 0; $i < 720; $i++) {
+           $this->generateXYCode(null, $x_travel, $s_travel, $z_angle, $feedrate, $cf_angle);
+           $this->generateXYCode(null, -1 * $x_travel, $s_travel, $z_angle, $feedrate, $cf_angle);
+       }
         
        // Generate Post 
        array_push($this->gcodes, "M2");

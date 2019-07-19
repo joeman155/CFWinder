@@ -17,21 +17,23 @@
  */
 class distributedMass {
     
-    private $g = 9.81;         // Acceleration ms-2
+    private $g = 9.81;             // Acceleration ms-2
     private $name;
     private $mass;
     private $length;
-    private $start_distance;   // Distance from AFT end of the rocket
-    private $drag_coefficient; // Drag co-efficient. This is set to zero for components that do not contribute to drag
+    private $start_distance;       // Distance from AFT end of the rocket
+    private $drag_coefficient;     // Drag co-efficient. This is set to zero for components that do not contribute to drag
+    private $axial_force_position; // Some distributed components apply their mass at a specific place. e.g. inernal components
     
     
-    public function __construct($name, $mass, $length, $start_distance, $drag_coefficient = 0) {
+    public function __construct($name, $mass, $length, $start_distance, $drag_coefficient = 0, $axial_force_position = -1) {
             
-        $this->name           = $name;
-        $this->mass           = $mass;
-        $this->length         = $length;
-        $this->start_distance = $start_distance;
-        $this->drag_coefficient = $drag_coefficient;
+        $this->name                 = $name;
+        $this->mass                 = $mass;
+        $this->length               = $length;
+        $this->start_distance       = $start_distance;
+        $this->drag_coefficient     = $drag_coefficient;
+        $this->axial_force_position = $axial_force_position;
         
     }
     
@@ -43,6 +45,10 @@ class distributedMass {
         return $this->mass;
     }
     
+    public function getAxialForcePosition() {
+        return $this->axial_force_position;
+    }
+    
     public function isActivated($x) {
         if ($x < $this->start_distance) {
            return false;
@@ -50,6 +56,18 @@ class distributedMass {
            return true;
         }
     }
+    
+    
+    public function isAxialActivated($x) {
+        if ($this->axial_force_position < 0) return false;   // Not applicable. No point that it applies axial force (Inertia)
+        
+        if ($x < $this->axial_force_position) {
+           return false;
+        }  else {
+           return true;
+        }
+    }
+    
     
     // Because the mass is a continous mass acting over a certain distance, we need to find
     // out the fraction of the mass that we need to consider. 
@@ -81,4 +99,14 @@ class distributedMass {
        
        return $drag;
     }    
+    
+    // We derive the inertia force component from this component acting at point on rocket air-frame.
+    //
+    public function getInertiaForce($x, $acceleration) {
+        if ($this->isAxialActivated($x) == true) {
+            return $this->getMass() * $acceleration;
+        }
+        
+        return 0;        
+    }
 }

@@ -218,13 +218,22 @@ class Rocket {
         }
         
         // Distributed Masses  (Inertial)
+        // These can act over a distance...
+        // or
+        // They can act at a point.
+        // 
+        // It depends upon how they are attached.
+        //
         foreach ($this->distributedMasses as $k=>$distributedMass) {
-            if ($distributedMass->isActivated ($x)) {
-                // Lateral component
-                $axial = $axial + $distributedMass->massFraction($x) * $this->getAxialAcceleration();                
-            }                 
+            if ($distributedMass->getAxialForcePosition() < 0) {
+               // Axial component acts over a range.
+               if ($distributedMass->isActivated ($x)) {
+                   $axial = $axial + $distributedMass->massFraction($x) * $this->getAxialAcceleration();                
+               }                 
+            } else {
+                $axial = $axial + $distributedMass->getInertiaForce($x, $this->getAxialAcceleration());
+            }
         }
-
         
         return $axial;
     }    

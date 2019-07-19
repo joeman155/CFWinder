@@ -19,7 +19,7 @@ and open the template in the editor.
         <?php
         
         
-        $x_step = 0.1;
+        $x_step = 0.025;
         $diameter = 0.08;              // Outer diameter of Airframe
         $burnout_mass = 8;             // Approx Weight (kg) of rocket at burnout (~1.6 seconds)
         $length = 2.5;                 // Length of rocket
@@ -73,11 +73,21 @@ and open the template in the editor.
         $rocket->addDistributedMass($body_tube_mass);
         
         
+        // Fins
+        $drag_coefficient = 0.125;   // Mostly friction drag for Body Tube (not pressure drag)
+        $mass = 0.543;               // Mass from Open Rocket
+        $length = 0.4;               // Length of this component
+        $start  = 0.18;              // From Open Rocket (Root = 28cm, tip = 8cm)... averaged 8 + (28 - 8)/2
+        $fins = new distributedMass("Fins", $mass, $length, 0, $drag_coefficient);
+        $rocket->addDistributedMass($fins);        
+        
+        
         // Drogue Parachute contribution
         $drogue_mass        = 0.170;  // From Open rocket
         $drogue_pack_length = 0.215;  // From Open rocket
         $drogue_start       = 1.28;   // Starts 1.28 meters from AFT
-        $drogue_chute_mass = new distributedMass("Drogue Chute", $drogue_mass, $drogue_pack_length, $drogue_start);
+        $axial_force_position = 1.6;  // Ultimately this acts on the rocket tube at top
+        $drogue_chute_mass = new distributedMass("Drogue Chute", $drogue_mass, $drogue_pack_length, $drogue_start, 0, $axial_force_position);
         $rocket->addDistributedMass($drogue_chute_mass);
         
         
@@ -85,9 +95,20 @@ and open the template in the editor.
         $main_mass        = 0.960;   // From Open Rocket
         $main_pack_length = 0.255;   // From Open Rocket
         $main_start       = 1.82;    // From Open Rocket
-        $main_chute_mass = new distributedMass("Main Chute", $main_mass, $main_pack_length, $main_start);
+        $axial_force_position = 1.6; // Ultimately this acts on the rocket tube at top
+        $main_chute_mass = new distributedMass("Main Chute", $main_mass, $main_pack_length, $main_start, 0, $axial_force_position);
         $rocket->addDistributedMass($main_chute_mass);
         
+        // Motor casing (inside)
+        //  For Axial - acting on rear of rocket, where thrust is applied. 
+        //  For Shear - acting on air-frame of rocket
+        //
+        $mass  = 3;          // From Open Rocket  (difference between burn out mass and rocket without any motor)
+        $length = 0.803;     // Length of motor with reload
+        $start = 0;          // From Open Rocket  (in center of coupler tube that it resides in)
+        $axial_force_position = 0; // The axial inertia component acts at the AFT end of the rocket
+        $motor_case = new distributedMass("Motor Case", $mass, $length, $position, 0, $axial_force_position);
+        $rocket->addDistributedMass($motor_case); 
         
         
         /* POINT MASSES */
@@ -112,6 +133,7 @@ and open the template in the editor.
         $spot = new pointMass("Spot Messenger", $mass, $position);
         $rocket->addPointMass($spot);
 
+        
         // Stability Mass
         $mass = 0.10;       // From Open Rocket
         $position = 2.15;   // From Open Rocket  (in center of coupler tube that it resides in)
@@ -120,6 +142,15 @@ and open the template in the editor.
         
         
         // Nose Cone - treated as a point load on the end of the Payload Bay.
+        $mass = 0.250;     // From Open Rocket
+        $position = 2.05;  // TOp of Payload Tube (from OR)
+        $nose_cone = new pointMass("Nose Cone", $mass, $position);
+        $rocket->addPointMass($nose_cone);
+        
+        
+        // WE ARE NEGLECTING NOSE CONE DRAG.
+        // I don't think it has any bearing as we know the maximum loads will be at back
+        
         
         
         print "Number of axial forces on rocket:       " . count($rocket->getAxialForces()) . "<br />";
