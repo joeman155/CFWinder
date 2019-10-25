@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <!--
+// BRANCH: Nosecone
+
 License to Joseph Turner
 
 GPL - FREE IN EVERY SENSE. 
@@ -9,7 +11,7 @@ USE AT YOUR OWN RISK.
 <html>
     <head>
         <meta charset="UTF-8">
-        <title>CFWinder Tube Landing Page</title>
+        <title>CFWinder Tube Landing Page - Nosecone</title>
     </head>
     <body>
         <H1>General Parameters</H1>
@@ -71,11 +73,29 @@ USE AT YOUR OWN RISK.
                 <tr>
                     <td>Horizontal starting position (meters)</td>
                     <td><input type="text" name="start_x" value="0.1" /></td>
-                </tr>                 
+                </tr>              
+                <tr>
+                    <td>Horizontal starting position of NoseConeBase (meters)</td>
+                    <td><input type="text" name="nose_cone_start_x" value="0.2" /></td>
+                </tr>     
+                <tr>
+                    <td>Horizontal ending position of NoseConeTop (meters)</td>
+                    <td><input type="text" name="nose_cone_stop_x" value="0.5" /></td>
+                </tr>   
+                <tr>
+                    <td>Radius of NoseConeTop (meters)</td>
+                    <td><input type="text" name="nose_cone_top_radius" value="0.01" /></td>
+                </tr>                  
             </table>
 
             <br />
-
+            <H3>A few notes on Nose Cone</H3>
+            <ul>
+                <li>Nose Cone larger radius is assumed to be on LHS and is assumed to be equal to the radius of the "Mandrel Radius"</li>
+                <li>Nose Cone Base start is where the diameter starts to reduce. i.e. Ignore the fact the NoseCone PART extends a little to the left to allow a coupler</li>
+                <li>The ending position is NOT the "tip" of the nose cone, it is the point at which the diameter of the nosecone part is NOT going to be less. i.e. truncated nose coneys</li>
+                <li>The radius of NoseConeTop is the minimum radius of the nose cone. </li>
+            </ul>
 
             <table>
                 <tr>
