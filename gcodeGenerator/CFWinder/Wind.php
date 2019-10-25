@@ -39,6 +39,7 @@ class Wind {
                                               // We increase the angle by which we advance the Z-axis by a little. At present this is NOT used during transition at end of pass.
 
     
+    private $max_x;                         // Max position the Train is moved...we work this out, so we know how far to move the heat gun at the end.
     
     
     private $current_x;                     // Units are mm - This is the train
@@ -826,6 +827,14 @@ class Wind {
         
         $code_text = "G1 F" . $feedrate . " X" . $this->generateXPosValue($this->current_x) . " Y" . $this->generateYPosValue($this->current_s) . " Z" . $this->generateZPosValue($this->current_z);
         array_push($this->gcodes, $code_text);
+        
+        
+        // Calculate max_x - for layers
+        if (!is_null($layer)) {
+           if ($this->current_x > $this->max_x) {
+               $this->max_x = $this->current_x;
+           }   
+        }
     }
     
     
@@ -913,7 +922,10 @@ class Wind {
        
        // Each travel = about 20 seconds. i.e. 6000 mm/min
        $feedrate = 6000;
-       $x_travel   = 2.050 - 0.170;  // This is the current travel distance for this mandrel
+       
+       // The length of the piece we are winding.
+       $x_travel = ($this->max_x - $this->start_x);
+      
        // $x_travel_trail = 0.17;    // 2 Meters
        $s_travel = 1800; // 1800 degrees (i.e. 5 revolutions)
        $z_angle = 0;     // No need to move this.
