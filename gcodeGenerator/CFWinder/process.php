@@ -21,6 +21,11 @@ $eyeletHeight          = $_REQUEST['eyeletHeight'];
 $start_y = 0;
 $start_z = 0;
 
+// Nosecone specific parameters
+$nose_cone_start_x     = $_REQUEST['nose_cone_start_x'];
+$nose_cone_stop_x      = $_REQUEST['nose_cone_stop_x'];
+$nose_cone_top_radius  = $_REQUEST['nose_cone_top_radius'];
+
 
 // Per layer parameters
 $enable_layer          = $_REQUEST['enable_layer'];
@@ -48,7 +53,7 @@ for ($i = 0; $i < 5; $i++) {
 
 $wind = new Wind($mandrelRadius, $eyeletDistance, $eyeletHeight, $cf_width, $transition_feed_rate, $straight_feed_rate, 
                  $spindle_direction, $start_x, $start_y, $start_z,
-                 $layers );
+                 $layers, $nose_cone_start_x,  $nose_cone_stop_x, $nose_cone_top_radius);
 
 $wind->generateGCodes();
 ?>
@@ -149,7 +154,6 @@ $wind->generateGCodes();
                 <td><?=round($wind->getTime(), 0)?> seconds</td>
             </tr>    
         </table>
-  TODO
         
         
         

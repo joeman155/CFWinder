@@ -16,6 +16,12 @@ class Wind {
     private $mandrelRadius;                   // Radius of Mandrel - meters
     private $eyeletDistance;                  // Perpendicular distance from mandrel surface to eyelet dispensing CF.
     private $eyeletHeight;                    // Height above Mandrel center
+    
+    private $nose_cone_start_x;               // Where the Nose Cone starts  (and radius starts to decrease)
+    private $nose_cone_stop_x;                // Where nose cone ends (and radius stops decreasing)
+    // nose_cone_stop_x > nose_cone_start_x
+    private $nose_cone_top_radius;            // Radius at "top" of Nose Cone
+    
 
     private $cf_width;                        // Width of fiber in Meters
     private $straight_feed_rate;              // Rate of laydown of CF during straight sections.
@@ -77,7 +83,7 @@ class Wind {
 
     public function __construct($mandrelRadius, $eyeletDistance, $eyeletHeight, $cf_width, $transition_feed_rate, $straight_feed_rate,
                                 $spindle_direction, $start_x=0,  $start_s=0, $start_z=0,
-                                $layers) {
+                                $layers, $nose_cone_start_x, $nose_cone_stop_x, $nose_cone_top_radius) {
         
         
         
@@ -113,6 +119,12 @@ class Wind {
         
         $this->transition_feed_rate = $transition_feed_rate;
         $this->straight_feed_rate   = $straight_feed_rate;
+        
+        
+        // Nose Cone parameters
+        $this->nose_cone_start_x    = $nose_cone_start_x;
+        $this->nose_cone_stop_x     = $nose_cone_stop_x;
+        $this->nose_cone_top_radius = $nose_cone_top_radius;
 
     }
     
@@ -886,6 +898,29 @@ class Wind {
         array_push($this->gcodes, "G1 F6000 Z" . $this->start_z);        
         array_push($this->gcodes, "M1");
 
+        
+        // Get the wind "started"
+        
+        
+        
+        // Generate the Pre-Cone (equal radius section)
+        
+        
+        
+        // Geneate the Nosecone wind moves (where the radius goes down)
+        
+        
+        
+        // Generate Pre-cone wind
+        
+        
+        
+        // Turn Around (and position accordingly
+        
+        
+        
+        
+        /*
         // Create all the passes
         for ($layer = 0; $layer < count($this->layers); $layer++) {
             $this->calculations($layer);
@@ -908,23 +943,25 @@ class Wind {
         
         }
         
+       
         
+       // HOTAIR-GUN
        // Rotation - basically make it spin a long time while moving Carriage back and forward with hot air-gun going
        // First we put the hot air-gun into position
+       
+       // Each travel = about 20 seconds. i.e. 6000 mm/min
+       $feedrate = 6000;        
        $x_pos =  $this->start_x + 0.170;
+       
+       // Move to Start Position
        array_push($this->gcodes, "G1 F6000 X" . 1000 * $x_pos);
        $this->current_x = $x_pos;  // We know the gun starting point is 170mm ahead of everything. So we don't heat the Motor!!
        
-       // $this->current_s = 0;
        // We wait for user to turn on Hot Air Gun, Cut the CF ... No more tow winding...
        // ... and then press 'S' key to resume...
        array_push($this->gcodes, "M1");  
        
-       
-       // Each travel = about 20 seconds. i.e. 6000 mm/min
-       $feedrate = 6000;
-       
-       // The length of the piece we are winding.
+       // The length of the piece we are winding tells us how far we need to move the HeatGun
        $x_travel = ($this->max_x - $this->start_x);
       
        // $x_travel_trail = 0.17;    // 2 Meters
@@ -935,8 +972,9 @@ class Wind {
            $this->generateXYCode(null, $x_travel, $s_travel, $z_angle, $feedrate, $cf_angle);
            $this->generateXYCode(null, -1 * $x_travel, $s_travel, $z_angle, $feedrate, $cf_angle);
        }
-        
-       // Generate Post 
+       */
+       
+       // Finish the GCode file
        array_push($this->gcodes, "M2");
        array_push($this->gcodes, "$");
     }

@@ -89,9 +89,10 @@ USE AT YOUR OWN RISK.
             </table>
 
             <br />
-            <H3>A few notes on Nose Cone</H3>
+            <H3>A few notes on Nose Cone Definition</H3>
             <ul>
-                <li>Nose Cone larger radius is assumed to be on LHS and is assumed to be equal to the radius of the "Mandrel Radius"</li>
+                <li>Nose Cone larger radius assumed to be equal to the radius of the "Mandrel Radius"</li>
+                <li>Nose Cone is built with large radius to LEFT (near X = 0) and smaller radius to the right</li>
                 <li>Nose Cone Base start is where the diameter starts to reduce. i.e. Ignore the fact the NoseCone PART extends a little to the left to allow a coupler</li>
                 <li>The ending position is NOT the "tip" of the nose cone, it is the point at which the diameter of the nosecone part is NOT going to be less. i.e. truncated nose coneys</li>
                 <li>The radius of NoseConeTop is the minimum radius of the nose cone. </li>

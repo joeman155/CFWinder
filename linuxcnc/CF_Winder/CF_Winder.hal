@@ -38,7 +38,7 @@ net zdir            => parport.0.pin-07-out
 net xenable         => parport.0.pin-14-out
 net home-x          <= parport.0.pin-15-in
 net min-home-x          <= parport.0.pin-15-in-not
-net max-x           <= parport.0.pin-11-in
+net max-x           <= parport.0.pin-11-in-not
 
 
 setp stepgen.0.position-scale [AXIS_0]SCALE
