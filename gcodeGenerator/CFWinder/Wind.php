@@ -9,18 +9,44 @@
 
 /**
  * Description of Wind
+ * 
+ * This incarnation of Wind is for creating a Nose COne.
+ * It is assumed that the nose cone is widest on LHS, near the motor, where the wind starts
+ * It is also assumed we have a constant radius component of the nose on LHS, which is what the coupler slips
+ * into. 
+ * 
+ * We Wind each pass starting off like a standard tube. Then when we get to a certain point, we calculate all the points
+ * for the 3 axis to create the Nose Cone
+ * Then at some point during the wind of the Nose Cone, BEFORE reaching the RHS, we stop this part, and then finish off, like we do for Tubes.
+ * Then we spin certain amount and then go back. The important thing is that when we get back, we are BACK to where we started...
+ * Then we do one revolution + BIT (to advance CF) and then REPEAT.
+ * 
+ * Where we stop the wind on the right depends our the properties we want at the RHS.
+ * 
  *
  * @author joema
  */
 class Wind {
+    // NOSE CONE CONFIGURATION
+    private $nose_cone_start_x;               // Where the Nose Cone starts  (and radius starts to decrease)
+    private $nose_cone_stop_x;                // Where nose cone ends (and radius stops decreasing)
+    // IT is important to note that nose_cone_stop_x > nose_cone_start_x
+    private $nose_cone_top_radius;            // Radius at "top" of Nose Cone
+    private $cf_closest_approach_to_tip;      // Closest distance in meters from TIP that the CF gets to
+    private $wind_time_per_pass;              // There and Back in seconds
+    private $nose_cone_circle_radius_2d;      // The radius of circle that when folded up produces the Nose Cone
+    
+    /* The CF takes a "straight line", a geodesic. This is to ensure tight (no slip fit) 
+     * 
+     */
+
+    
+    
     private $mandrelRadius;                   // Radius of Mandrel - meters
     private $eyeletDistance;                  // Perpendicular distance from mandrel surface to eyelet dispensing CF.
     private $eyeletHeight;                    // Height above Mandrel center
     
-    private $nose_cone_start_x;               // Where the Nose Cone starts  (and radius starts to decrease)
-    private $nose_cone_stop_x;                // Where nose cone ends (and radius stops decreasing)
-    // nose_cone_stop_x > nose_cone_start_x
-    private $nose_cone_top_radius;            // Radius at "top" of Nose Cone
+
     
 
     private $cf_width;                        // Width of fiber in Meters
@@ -33,11 +59,11 @@ class Wind {
     private $layer_properties;                // Properties of layers
     
     private $optimum_z_angle;                 // The optimum angle for the cf_angle required...to minimize CF width reduction.
-    private $transition_steps_in = 15;           // How many steps to break the transition into.
+    private $transition_steps_in = 15;         // How many steps to break the transition into.
     private $transition_steps_out = 15;        // How many steps to break the transition into...for OUT part of pass.
     
     // Self-imposed limits
-    private $max_feed_rate = 14000;           // Maximum feed rate (mm/min)
+    private $max_feed_rate = 12000;           // Maximum feed rate (mm/min)
     private $min_feed_rate = 500;             // Minimum feed rate - used at ends
     private $transition_feed_rate;            // Feed rate of the transition
     
@@ -128,6 +154,18 @@ class Wind {
 
     }
     
+    
+    public function getNoseConeStartX($layer) {
+        return $this->nose_cone_start_x;
+    }    
+
+    public function getNoseConeStopX($layer) {
+        return $this->nose_cone_stop_x;
+    }    
+
+    public function getNoseConeTopRadius($layer) {
+        return $this->nose_cone_top_radius;
+    }        
     
     public function getLeadDistance($layer) {
         return $this->layer_properties[$layer]['lead_distance'];
@@ -380,6 +418,28 @@ class Wind {
      */
     public function calculateXTravelMeters($s_angle, $cf_angle) {
        return ($s_angle * pi()/180) * $this->mandrelRadius/ tan(pi() * $cf_angle/180);
+    }
+    
+    
+    /*
+     * Given the X travel distance and CF Angle, work out the rotation distance. M - same units as X
+     * 
+     * Result returned is in meters
+     * 
+     */
+    public function calculateYTravelMeters($x_travel, $cf_angle) {
+       return $x_travel * tan(pi() * $cf_angle/180);
+    }
+
+    
+    /*
+     * Given the X travel distance and CF Angle, work out the rotation distance. M - same units as X
+     * 
+     * Result returned is in meters
+     * 
+     */
+    public function calculateYTravelDegrees($x_travel, $cf_angle) {
+       return (180 / pi()) * $this->calculateYTravelMeters($x_travel, $cf_angle) / $this->getMandrelRadius();
     }
     
     
@@ -753,6 +813,102 @@ class Wind {
     }
     
     
+public function generatePassCone($layer) {
+        
+        $this->current_pass++; 
+        
+        if ($this->current_pass %2 == 0) {
+            $direction = -1;
+        } else {
+            $direction = +1;
+        }
+        
+        // Only advance if on 3,5,7... pass. i.e. not on first pass or even pass
+        // We use transision feed rates.
+        if ($this->current_pass > 1 && $this->current_pass % 2 == 1) {
+            $feedrate = $this->transition_feed_rate + 99;
+            $s_travel = $this->actualCFAdvancementAngle($layer) + $this->layers[$layer]['extra_spindle_turn'];
+            $z_angle = 0;
+            $this->generateYCode($layer, $s_travel, $z_angle, $feedrate);
+        } elseif ($this->current_pass > 1 && $this->current_pass % 2 == 0 && $this->layers[$layer]['extra_spindle_turn'] > 0) {
+            // Add the SPIN at the end (if one is requested). Purpose of this is to try and maintain tension in the CF.
+            $feedrate = $this->transition_feed_rate + 98;
+            $s_travel = $this->layers[$layer]['extra_spindle_turn'];
+            $z_angle = 0;
+            $this->generateYCode($layer, $s_travel, $z_angle, $feedrate); 
+        }
+        
+
+        
+        // Do the Transition
+        foreach ($this->transition_in_move as $key => $value) {
+            $cf_angle = $value['cf_angle'];
+            $s_travel = $value['s_travel'];
+            $feedrate = $value['feedrate'];
+            $z_angle  = $value['z_angle'];
+            $x_travel = $value['x_travel'];
+            
+            // In the transitions we ALWAYS move at speed that will allow us to get to the desired CF ANGLE
+            $x_travel = $direction * $x_travel;
+
+            // Work out how far to rotate the z-axis
+            $z_angle = $this->getSpindleDirection() * $direction * $z_angle;          
+
+            $this->generateXYCode($layer, $x_travel, $s_travel, $z_angle, $feedrate, $this->getCFAngle($layer));            
+        }
+        
+        
+        # This is Where we do the CONE Component
+        # This depends upon direction....
+        #                   starting X, starting Y, starting z 
+        #
+        # FIRST, we need to constant radius section until certain distance.
+        
+        # This has to be some distance PAST the start of the Cone Base...because the Carbon Fiber vectors is trailing
+        # the position of the DElivery Head. WE know the distance it trails depends upon the CF Angle 
+        # We are adopting the CYLINDER code and this "distance" was calulated PER layer.
+        $x_travel = $direction * ($this->getNoseConeStartX($layer) + $this->layer_properties[$layer]['lead_distance'] - $this->current_x);
+        
+        # The Angular distance to travel to ensure correct laydown angle
+        $s_travel = $this->calculateYTravelDegrees($x_travel, $this->layer_properties[$layer]['cf_angle']);
+        
+        # The optimum z angle for the cylinder sections
+        $z_angle  = $this->getSpindleDirection() * $direction * $this->optimum_z_angle;  // work out how much further to rotate from current position to get to optimum angle.
+        
+        # TODO - This should be okay...we MAY want it to be similar to the NoseCone start speed, though probably not critical
+        $feedrate = $this->straight_feed_rate;
+        
+        # This SHOULD be OKAY.
+        $this->generateXYCode($layer, $x_travel, $s_travel, $z_angle, $feedrate, $this->getCFAngle($layer));        
+        
+
+        
+        
+        /* Now we need to do the Cone */
+        
+        
+        
+        // Do a transition - i.e. no x-movement, only Y and Z
+        foreach ($this->transition_out_move as $key => $value) {
+            $cf_angle = $value['cf_angle'];
+            $s_travel = $value['s_travel'];
+            $feedrate = $value['feedrate'];
+            $z_angle  = $value['z_angle'];
+            
+            // Work out how far to rotate the z-axis
+            $z_angle = $this->getSpindleDirection() * $direction * $z_angle;
+
+            $this->generateYCode($layer, $s_travel, $z_angle, $feedrate);            
+        }
+
+        // End the transition by orientating the z-axis (CF guide) to zero degrees. Not moving anything else
+        $z_angle  = 0;
+        $s_travel = 0;
+        $feedrate = $this->transition_feed_rate;
+        $this->generateYCode($layer, $s_travel, $z_angle, $feedrate);
+        
+    }
+
     
     
     public function calculateXSpeed($feedrate, $x_travel, $cf_angle) {
@@ -900,9 +1056,20 @@ class Wind {
 
         
         // Get the wind "started"
+        // Create all the passes
+        for ($layer = 0; $layer < count($this->layers); $layer++) {
+            // This does all the calculateions and then generates all the points for IN and OUT parts        
+            $this->calculations($layer);
+          
+           $this->current_pass = 0;
+           for ($i = 1; $i <= $this->calculatePassesToCoverMandrel($layer) * 2; $i++) {
+              $this->generatePassCone($layer);
+           }        
+        
+        }
         
         
-        
+        // DO NOT THINK WE WILL NEED THIS.
         // Generate the Pre-Cone (equal radius section)
         
         
@@ -911,12 +1078,35 @@ class Wind {
         
         
         
-        // Generate Pre-cone wind
-        
+        // Generate Post-cone wind
+        // Here we advance say 3cm and let the mandrel wind and bring the Z axis slowly into 0.
+        // This is very similar to normal tubes. Because the angle is already getting lower as we 
+        // move right, we probably don't need the post pass transistion like that in the pure tube winding s/w
         
         
         // Turn Around (and position accordingly
+        // If we know we went around say x * 360 + y  (where X = integer) degrees then we know
+        // if we travel back ...it will be 2 * x * 260 + 2 * y degrees... and we want to be sure
+        // it is BACK where we started...or 180 degrees from where we started Minimum
         
+        
+        
+        
+        // Pre-Wind BACK to beginning
+        
+        
+        
+        // Nose Cone part
+        
+        
+        
+        // TUBE Part
+        
+        
+        // Turn around and advance one "CF" width unit
+        
+        
+        // REPEAT
         
         
         
@@ -990,6 +1180,19 @@ class Wind {
         fclose($fp);
     }
 
+    
+    /*
+     * In coneCalculations, we need to calculate all the x_travel, y_Travel, z_travel to move the 
+     * tool to ensure we get a path as defined by CONE value
+     */
+    public function coneCalulations($layer) {
+        
+        
+    }
+    
+    
+    
+    
     public function calculations($layer) {
         
         $cf_angle_y = $this->calculateCFYAngle();
