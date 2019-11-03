@@ -105,7 +105,7 @@ $wind->generateGCodes();
                 <td>Straight Feed Rate</td>
                 <td><?=round($wind->getStraightFeedRate() , $wind->sig_figures)?></td>
             </tr>              
-        </table>
+        </table> 
         
         
         <h1> Layers</h1>

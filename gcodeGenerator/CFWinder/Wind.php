@@ -32,15 +32,17 @@ class Wind {
     private $nose_cone_stop_x;                // Where nose cone ends (and radius stops decreasing)
     // IT is important to note that nose_cone_stop_x > nose_cone_start_x
     private $nose_cone_top_radius;            // Radius at "top" of Nose Cone
-    private $cf_closest_approach_to_tip;      // Closest distance in meters from TIP that the CF gets to
-    private $wind_time_per_pass;              // There and Back in seconds
-    private $nose_cone_circle_radius_2d;      // The radius of circle that when folded up produces the Nose Cone
+    private $nose_cone_cf_closest_approach_to_tip;      // Closest distance in meters from TIP that the CF gets to
+    private $nose_cone_wind_time_per_pass;              // There and Back in seconds
+    private $seconds_per_tick;               // How long does each data point occupy in time.
+    private $nose_cone_num_data_points;       // Number of data points per pass
     
     /* The CF takes a "straight line", a geodesic. This is to ensure tight (no slip fit) 
      * 
      */
 
-    
+    private $mandrel_speed_conversion;        // By Default, Mandrel Speed in LinuxCNC is in mm/min...
+                                              // to use this, multiple the angular speed in radians by this number.
     
     private $mandrelRadius;                   // Radius of Mandrel - meters
     private $eyeletDistance;                  // Perpendicular distance from mandrel surface to eyelet dispensing CF.
@@ -120,6 +122,8 @@ class Wind {
         $this->cf_width            = $cf_width;
         $this->spindle_direction   = $spindle_direction;
         
+        $this->mandrel_speed_conversion = 0.0381;
+        
         // Layers we want to create
         $this->layers              = $layers;
         
@@ -151,6 +155,13 @@ class Wind {
         $this->nose_cone_start_x    = $nose_cone_start_x;
         $this->nose_cone_stop_x     = $nose_cone_stop_x;
         $this->nose_cone_top_radius = $nose_cone_top_radius;
+        
+        $this->nose_cone_cf_closest_approach_to_tip = 0.17;   // 0.15 meters from tip
+        $this->nose_cone_wind_time_per_pass         = 10;     // Seconds to do there and back
+        $this->nose_cone_num_data_points            = 100;
+        $this->seconds_per_tick                    = 0.1;
+
+   
 
     }
     
@@ -458,17 +469,19 @@ class Wind {
      * 
      * y-axis is the Spindle axis.
      */
-    public function calculateCFYAngle() {
-        $error = 1/10000;
+    public function calculateCFYAngle($radius, $x_gap, $y_gap) {
+        $error = 1/1000;
         for ($i=0; $i< 90; $i=$i+0.1) {
-            $lhs = $this->mandrelRadius;
-            $rhs = sin(pi() * $i / 180) * ($this->mandrelRadius + $this->eyeletDistance) + $this->eyeletHeight * cos(pi() * $i / 180);
+            // $lhs = $this->mandrelRadius;
+            $lhs = $radius;
+            // $rhs = sin(pi() * $i / 180) * ($this->mandrelRadius + $this->eyeletDistance) + $this->eyeletHeight * cos(pi() * $i / 180);
+            $rhs = sin(pi() * $i / 180) * ($radius + $x_gap) + $y_gap * cos(pi() * $i / 180);
            
             if (abs($rhs - $lhs) < $error) {
                 break;
             }
         }
-        return $i;
+        return $i;   
     }
     
     
@@ -1058,13 +1071,20 @@ public function generatePassCone($layer) {
         // Get the wind "started"
         // Create all the passes
         for ($layer = 0; $layer < count($this->layers); $layer++) {
-            // This does all the calculateions and then generates all the points for IN and OUT parts        
+            // This does all the calculations for Cylindrical section of the Build      
             $this->calculations($layer);
+            
+            // This does all the calculations for Nose Cone section of the Build.
+            $this->coneCalculations($layer);
           
+            
+            /*
            $this->current_pass = 0;
            for ($i = 1; $i <= $this->calculatePassesToCoverMandrel($layer) * 2; $i++) {
               $this->generatePassCone($layer);
            }        
+             *
+             */
         
         }
         
@@ -1182,12 +1202,210 @@ public function generatePassCone($layer) {
 
     
     /*
-     * In coneCalculations, we need to calculate all the x_travel, y_Travel, z_travel to move the 
+     * In coneCalculations, we need to calculate all the x_travel, s_travel, z_travel to move the 
      * tool to ensure we get a path as defined by CONE value
+     * 
+     * All values are "RELATIVE" to the current starting position
+     * 
      */
-    public function coneCalulations($layer) {
+    public function coneCalculations($layer) {
+        
+        $debug = 1;
         
         
+        
+        // Generic parameters
+        $meters_to_mm = 1000;
+        $seconds_to_minutes = 60;
+        
+        
+        // Calculate some properties required by loop below
+        $pass_time = $this->nose_cone_wind_time_per_pass;
+        
+        print $this->getMandrelRadius()  .   "   " . $this->nose_cone_top_radius . "   " . $this->nose_cone_stop_x . "   " . $this->nose_cone_start_x . "<br/>";
+        // Angles
+        $alpha     = atan(($this->getMandrelRadius() - $this->nose_cone_top_radius)/ ($this->nose_cone_stop_x - $this->nose_cone_start_x));
+        $cot_a     = 1 / tan($alpha);
+        
+        
+        // Hyponensue distanace from base to theoretical point of cone. We say Theoretical because in actual
+        // fact we have a truncated Nose COone
+        // $cone_hyp = $this->getMandrelRadius() / Sin(atan(($this->getMandrelRadius() - $this->nose_cone_top_radius)/($this->nose_cone_stop_x - $this->nose_cone_start_x)));
+        $cone_hyp = $this->getMandrelRadius() / Sin($alpha);
+        
+        // Theta
+        $max_theta = 2 * pi() * $this->getMandrelRadius() / $cone_hyp;
+        $theta_a   = asin($this->nose_cone_cf_closest_approach_to_tip / $cone_hyp);
+        
+        // Ratio of circumferences of circles
+        $k         = (2 * pi() * $cone_hyp)/ (2 * pi() * $this->getMandrelRadius());
+        
+if ($debug == 1) {        
+        print "<pre>";
+        print "Alpha:     " . $alpha . "<br/>";
+        print "Cot_A:     " . $cot_a . "<br/>";
+        print "Cone Hyp:  " . $cone_hyp . "<br/>";
+        print "Theta A:   " . $theta_a . "<br/>";
+        print "MAX Theta: " . $max_theta . "<br/>";
+        print "k:         " . $k . "<br/>";
+        print "</pre>";
+        
+        
+        print "<table border=1>";
+        
+        print "<tr>";
+        print "<th>X</th>";
+        print "<th>Y</th>";
+        print "<th>Z</th>";
+        print "<th>Speed</th>";
+        print "<th>Mandrel Rotation Speed (mm/min)</th>";
+        print "<th>Resin Bath Speed (mm/min)</th>";    
+        print "<th>Angle of CF wrt Mandrel Axis</th>";        
+        print "</tr>";        
+}        
+        
+        $m              = pi()/2 - $theta_a;
+        $axial_distance = 0;
+        $phi_rel        = 0;
+        
+        // Go through Time steps, and devise the Travel in X, Y, Z
+        for ($i = 0; $i < $this->nose_cone_num_data_points; $i = $i + 1) {
+            $theta = $theta_a  + $i * $m / ($this->nose_cone_num_data_points);
+            $phi   = $theta * $k;
+            
+            // We get the INITIAL angles...
+            if ($i == 0) {
+                $start_theta = $theta;
+                $start_phi   = $phi;
+            }
+            
+            // 2-D space - where we are at.
+            $radius_2d = $this->nose_cone_cf_closest_approach_to_tip / sin($theta);
+
+
+            
+            // We are only interested in RELATIVE angles.
+            $theta_rel   = $theta - $start_theta;
+            $phi_rel_old = $phi_rel;
+            $phi_rel     = $phi   - $start_phi;
+            
+            // Calculate the Rotation m/sec
+            $rotational_speed = ($phi_rel - $phi_rel_old)/$this->seconds_per_tick;
+            
+            /*
+            if ($t != 1) {
+                $rotational_speed = ($phi_rel - $phi_rel_old)/$this->seconds_per_tick;
+            } else {
+                $rotational_speed = $phi_rel /$this->seconds_per_tick;
+            }
+             * 
+             */
+            
+            // print "JOES ROTATION SPEED: " . $rotational_speed . "<br/>";
+            
+            // TODO -- WE WANT TO KEEP ROTATION SPEED FIXED AND JUST VARY THE R SPEED TO SUIT!!!
+            
+            // Convert to mm/min 
+            $rotational_speed = $rotational_speed * $this->mandrel_speed_conversion * $meters_to_mm * $seconds_to_minutes;
+            
+            // $rotational_speed = 3100;
+            
+            $rotation_speed_display = round($rotational_speed, 0);
+            
+            // print "Rotation speed: " . $rotational_speed . "<br/>";
+            
+            
+            // Radius in 2-D
+            
+            // Radius of cone at this point in time
+            $radius_3d = $radius_2d / $k;
+            
+            // Distance from base of cone - in axial direction
+            $axial_distance_old = $axial_distance;
+            $axial_distance = ($cone_hyp - $this->nose_cone_cf_closest_approach_to_tip/Sin($theta)) * ($cot_a / $k);
+            $axial_speed = ($axial_distance - $axial_distance_old) / $this->seconds_per_tick;
+            /*
+            if ($i != 1 ){
+                $axial_speed = ($axial_distance - $axial_distance_old) / $this->seconds_per_tick;
+            } else  {
+                $axial_speed = $axial_distance / $this->seconds_per_tick;
+            }
+             */
+            
+            
+            $axial_speed = $axial_speed * $meters_to_mm * $seconds_to_minutes;
+            $axial_speed_display = round ($axial_speed);
+            // print "Axial speed: " . $axial_speed . "<br/>";
+            
+            
+            
+            // Combine Axial and Rotation speed (ignore radial speed... it is small)
+            $total_speed = sqrt($axial_speed * $axial_speed + $rotational_speed * $rotational_speed);
+            $total_speed_display = round($total_speed, 0);
+            // print "TOTAL speed: " . $total_speed . "<br/>";
+            
+            // Derive some quantities required below to get vector.
+            $gap = $this->mandrelRadius + $this->eyeletDistance - $radius_3d;
+            $cf_angle_y = (pi()/180) * $this->calculateCFYAngle($radius_3d, $gap, $this->eyeletHeight);
+            $the_gap = ($this->mandrelRadius + $this->eyeletDistance);
+            
+ /*            
+            $cf_angle_y = 0.866395963986426;
+            print "GAP = " . $gap . "<br />";
+            print "eyelet Height : " . $this->eyeletHeight . "<br />";
+            print "radius_3d = " . $radius_3d . "<br />";
+            print "cf_angle_y = " .  $cf_angle_y . "<br/>";
+            $radius_3d  = 0.0381;
+            print "radius_3d = " . $radius_3d . "<br />";  
+            print "the gap = " . $the_gap . "<br/>";
+  */
+   
+            
+            // Work out MANDREL (CF contact) <----> CF Dispenser VECTORY
+            // We need to work this out, so we can determine the Z angle
+            $v[0] = $radius_3d * sin($cf_angle_y) - ($this->mandrelRadius + $this->eyeletDistance);
+            $v[1] = $radius_3d * cos($cf_angle_y) - $this->eyeletHeight;
+            $angle_with_respect_to_mandrel_axis = acos($axial_speed / $total_speed);
+            $v[2] =  (($this->mandrelRadius + $this->eyeletDistance) - $radius_3d * sin($cf_angle_y))/ tan($angle_with_respect_to_mandrel_axis);
+            
+            $angle_with_respect_to_mandrel_axis_display = round((180/pi()) * $angle_with_respect_to_mandrel_axis, 0);
+            
+//            print "v = " . $v[0] . ", " . $v[1] . ", " . $v[2] . "<br/>";
+            
+            // Put on to plane
+            $v[0] = 0;
+            // Get the Unit vector
+            $v_unit = $this->vectorUnit($v);
+            
+//            print "V1 = " . $v_unit[1] . "<br />";
+            
+           
+            // X - POS
+            $x_pos = round(($cone_hyp - $this->nose_cone_cf_closest_approach_to_tip/Sin($theta)) * ($cot_a/$k) * $meters_to_mm,0);
+            $y_pos = round($phi_rel * $this->getMandrelRadius() * $meters_to_mm,0);
+            $z_pos = round((180 / pi()) * acos($v_unit[1]),0);
+            
+if ($debug == 1) {            
+            print "<tr>";
+            print "<td>" . $x_pos . "</td>";
+            print "<td>" . $y_pos . "</td>";
+            print "<td>" . $z_pos . "</td>";
+            print "<td>" . $total_speed_display . "</td>";
+            print "<td>" . $rotation_speed_display . "</td>";
+            print "<td>" . $axial_speed_display . "</td>";   
+            print "<td>" . $angle_with_respect_to_mandrel_axis_display . "</td>";
+            print "</tr>";
+}            
+            
+            // print "X,Y,Z = " . $x_pos . "   " . $y_pos . "   " . $z_pos . "   " . $rotation_speed_display . "   " . $axial_speed_display . " <br />";
+            
+        }
+        
+if ($debug == 1) {   
+        print "</table>";
+} 
+
+
     }
     
     
@@ -1195,7 +1413,7 @@ public function generatePassCone($layer) {
     
     public function calculations($layer) {
         
-        $cf_angle_y = $this->calculateCFYAngle();
+        $cf_angle_y = $this->calculateCFYAngle($this->getMandrelRadius(), $this->eyeletDistance, $this->eyeletHeight);
         // print "CF Angle X: " . $cf_angle_y . "<br/>";
 
         $v2 = $this->deriveVectorOriginMandrel($cf_angle_y);

@@ -68,22 +68,22 @@ USE AT YOUR OWN RISK.
                 </tr>              
                 <tr>
                     <td>Carbon Fiber width (meters)</td>
-                    <td><input type="text" name="cf_width" value="0.006" /></td>
+                    <td><input type="text" name="cf_width" value="0.0048" /></td>
                 </tr> 
                 <tr>
                     <td>Horizontal starting position (meters)</td>
-                    <td><input type="text" name="start_x" value="0.1" /></td>
+                    <td><input type="text" name="start_x" value="0.0" /></td>
                 </tr>              
                 <tr>
-                    <td>Horizontal starting position of NoseConeBase (meters)</td>
+                    <td>Horizontal starting position of Nose Cone Base (meters)</td>
                     <td><input type="text" name="nose_cone_start_x" value="0.2" /></td>
-                </tr>     
+                </tr>      
                 <tr>
-                    <td>Horizontal ending position of NoseConeTop (meters)</td>
+                    <td>Horizontal ending position of Nose Cone Top (meters)</td>
                     <td><input type="text" name="nose_cone_stop_x" value="0.5" /></td>
                 </tr>   
                 <tr>
-                    <td>Radius of NoseConeTop (meters)</td>
+                    <td>Radius of Nose Cone Top (meters)</td>
                     <td><input type="text" name="nose_cone_top_radius" value="0.01" /></td>
                 </tr>                  
             </table>
@@ -91,11 +91,12 @@ USE AT YOUR OWN RISK.
             <br />
             <H3>A few notes on Nose Cone Definition</H3>
             <ul>
+                <li>Nose cone is truncated...i.e. we don't go to a tip....there is a min radius</li>
                 <li>Nose Cone larger radius assumed to be equal to the radius of the "Mandrel Radius"</li>
                 <li>Nose Cone is built with large radius to LEFT (near X = 0) and smaller radius to the right</li>
                 <li>Nose Cone Base start is where the diameter starts to reduce. i.e. Ignore the fact the NoseCone PART extends a little to the left to allow a coupler</li>
                 <li>The ending position is NOT the "tip" of the nose cone, it is the point at which the diameter of the nosecone part is NOT going to be less. i.e. truncated nose coneys</li>
-                <li>The radius of NoseConeTop is the minimum radius of the nose cone. </li>
+                <li>The radius of Nose Cone Top is the minimum radius of the nose cone. </li>
             </ul>
 
             <table>
