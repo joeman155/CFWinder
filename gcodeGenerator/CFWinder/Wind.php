@@ -1040,6 +1040,40 @@ public function generatePassCone($layer) {
         array_push($this->gcodes, $code_text);
     }    
     
+    
+    /*
+     * This function was built during NoseCone coding
+     * 
+     * The purpose of this function is to return the radius of the Nose Cone at the point of which the CF 
+     * is on the Mandrel. 
+     * 
+     * The need became apparent after it was realised that the orientation of the fiber (z-axis) depends
+     * upon the vector from dispenser to mandrel surface, but to know this vector, we need to know the 
+     * radius at the point it makes contact...$x - SOME_DISTANCE.... not $x where the dispenser is
+     * 
+     * $x = Current position (meters) of the dispenser head
+     * $lead_distance - how far we lead the point of contact of CF with mandrel (meters)
+     * 
+     * Assumptions
+     *  
+     */
+    public function getMandrelRadiusAtX($x, $lead_distance) {
+        
+        
+        // See Where we are relation to the "start", "stop" of the cone and return appropriate radius of mandrel at this point
+        if ($x - $lead_distance > $this-> $this->nose_cone_start_x) {
+            return $this->getMandrelRadius();
+        } else if ($x - $lead_distance > $this->nose_cone_stop_x) {
+            $radius = $this->nose_cone_top_radius;
+        } else {
+            $radius = ($x - $lead_distance) * ($this->nose_cone_top_radius - $this->getMandrelRadius())/($this->nose_cone_stop_x - $this->nose_cone_start_x) + $this->getMandrelRadius();
+        }
+
+        
+        
+        }
+    
+    
     public function getGcodesCount() {
         return count($this->gcodes);
     }
@@ -1057,6 +1091,7 @@ public function generatePassCone($layer) {
      * 
      */
     public function generateGCodes() {
+        
         
        // Generate Pre-Amble
         array_push($this->gcodes, "G21");
@@ -1222,7 +1257,12 @@ public function generatePassCone($layer) {
         // Calculate some properties required by loop below
         $pass_time = $this->nose_cone_wind_time_per_pass;
         
-        print $this->getMandrelRadius()  .   "   " . $this->nose_cone_top_radius . "   " . $this->nose_cone_stop_x . "   " . $this->nose_cone_start_x . "<br/>";
+        
+        if ($debug == 1) {
+           print $this->getMandrelRadius()  .   "   " . $this->nose_cone_top_radius . "   " . $this->nose_cone_stop_x . "   " . $this->nose_cone_start_x . "<br/>";
+        }
+        
+        
         // Angles
         $alpha     = atan(($this->getMandrelRadius() - $this->nose_cone_top_radius)/ ($this->nose_cone_stop_x - $this->nose_cone_start_x));
         $cot_a     = 1 / tan($alpha);
@@ -1258,6 +1298,7 @@ if ($debug == 1) {
         print "<th>Y</th>";
         print "<th>Z</th>";
         print "<th>Speed</th>";
+        print "<th>Mandrel Angle (Deg)</th>";
         print "<th>Mandrel Rotation Speed (mm/min)</th>";
         print "<th>Resin Bath Speed (mm/min)</th>";    
         print "<th>Angle of CF wrt Mandrel Axis</th>";        
@@ -1288,6 +1329,10 @@ if ($debug == 1) {
             $theta_rel   = $theta - $start_theta;
             $phi_rel_old = $phi_rel;
             $phi_rel     = $phi   - $start_phi;
+            
+            
+            // Calculate angle in degrees
+            $s_angle = (180/pi()) * $phi_rel;
             
             // Calculate the Rotation m/sec
             $rotational_speed = ($phi_rel - $phi_rel_old)/$this->seconds_per_tick;
@@ -1391,6 +1436,7 @@ if ($debug == 1) {
             print "<td>" . $y_pos . "</td>";
             print "<td>" . $z_pos . "</td>";
             print "<td>" . $total_speed_display . "</td>";
+            print "<td>" . $s_angle . "</td>";
             print "<td>" . $rotation_speed_display . "</td>";
             print "<td>" . $axial_speed_display . "</td>";   
             print "<td>" . $angle_with_respect_to_mandrel_axis_display . "</td>";
