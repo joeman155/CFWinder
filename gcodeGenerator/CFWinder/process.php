@@ -48,8 +48,8 @@ for ($i = 0; $i < 5; $i++) {
        $layers[$i]['transition_end_wind']   = $transition_end_wind[$index];
     }
 }
-    
- // print("<pre>".print_r($layer)."</pre>");
+ 
+//   print("<pre>".print_r($layers)."</pre>");
 
 $wind = new Wind($mandrelRadius, $eyeletDistance, $eyeletHeight, $cf_width, $transition_feed_rate, $straight_feed_rate, 
                  $spindle_direction, $start_x, $start_y, $start_z,
