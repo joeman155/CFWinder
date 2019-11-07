@@ -447,7 +447,7 @@ class Wind {
     /*
      * Given the X travel distance and CF Angle, work out the rotation distance. M - same units as X
      * 
-     * Result returned is in meters
+     * Result returned is in degrees
      * 
      */
     public function calculateYTravelDegrees($x_travel, $cf_angle) {
@@ -827,36 +827,49 @@ class Wind {
     }
     
     
-public function generatePassCone($layer) {
+public function generatePassCone($layer, $s_angle_starting_angle) {
         
         $this->current_pass++; 
         
-        if ($this->current_pass %2 == 0) {
-            $direction = -1;
-        } else {
-            $direction = +1;
-        }
+        // Set Direction on START of pass
+        $direction = 1;
         
-        // Only advance if on 3,5,7... pass. i.e. not on first pass or even pass
-        // We use transision feed rates.
-        if ($this->current_pass > 1 && $this->current_pass % 2 == 1) {
+
+        
+        // In normal cylinders a Pass was in a SINGLE DIRECTION. i.e. you would need two passes to get back to where you started
+        // For Nose Cone a Single Pass gets you there AND back...so each pass, except for the first, we need to advanced the CF.
+        // Hence the simple condition below.
+        if ($this->current_pass > 1) {
+            
+            array_push($this->gcodes,"(ADVANCING THE CF)");
             $feedrate = $this->transition_feed_rate + 99;
-            $s_travel = $this->actualCFAdvancementAngle($layer) + $this->layers[$layer]['extra_spindle_turn'];
+            
+            // Work out how many degrees to get back to the beginning
+            $degrees_back_to_beginning = 360 * (1 - (($this->current_s - $s_angle_before)/360 - floor(($this->current_s - $s_angle_before)/360)));
+            
+            
+            // Extra SPindle turn is more of a guide for Nose Cone... it is the minimum degrees to turn at end
+            // If to get back to beginning we exceed the minimum, we do just this.
+            // If we don't, then we need to move back to beginning AND then move another 360 degrees.
+            if ($degrees_back_to_beginning > $this->layers[$layer]['extra_spindle_turn']) {
+                $s_move = $degrees_back_to_beginning;
+            } else {
+                $s_move = $degrees_back_to_beginning + 360;
+            }
+            
+            $s_travel = $this->actualCFAdvancementAngle($layer) + $s_move;
             $z_angle = 0;
             $this->generateYCode($layer, $s_travel, $z_angle, $feedrate);
-        } elseif ($this->current_pass > 1 && $this->current_pass % 2 == 0 && $this->layers[$layer]['extra_spindle_turn'] > 0) {
-            // Add the SPIN at the end (if one is requested). Purpose of this is to try and maintain tension in the CF.
-            $feedrate = $this->transition_feed_rate + 98;
-            $s_travel = $this->layers[$layer]['extra_spindle_turn'];
-            $z_angle = 0;
-            $this->generateYCode($layer, $s_travel, $z_angle, $feedrate); 
-        }
+        } 
         
-        array_push($this->gcodes,"START OF TRANSISTION IN");
+        
+        
+        array_push($this->gcodes,"(START OF TRANSISTION IN)");
                 
                 
         // Do the Transition
         foreach ($this->transition_in_move as $key => $value) {
+            
             $cf_angle = $value['cf_angle'];
             $s_travel = $value['s_travel'];
             $feedrate = $value['feedrate'];
@@ -864,18 +877,18 @@ public function generatePassCone($layer) {
             $x_travel = $value['x_travel'];
             
             // In the transitions we ALWAYS move at speed that will allow us to get to the desired CF ANGLE
-            $x_travel = $direction * $x_travel;
+            $x_travel = $x_travel;
 
             // Work out how far to rotate the z-axis
             $z_angle = $this->getSpindleDirection() * $direction * $z_angle;          
-
+            
             $this->generateXYCode($layer, $x_travel, $s_travel, $z_angle, $feedrate, $this->getCFAngle($layer));            
         }
         
         
         
         
-        array_push($this->gcodes,"START OF CYLINDRICAL");
+        array_push($this->gcodes, "(START OF CYLINDRICAL)");
         
         # This is Where we do the CONE Component
         # This depends upon direction....
@@ -886,7 +899,7 @@ public function generatePassCone($layer) {
         # This has to be some distance PAST the start of the Cone Base...because the Carbon Fiber vectors is trailing
         # the position of the DElivery Head. WE know the distance it trails depends upon the CF Angle 
         # We are adopting the CYLINDER code and this "distance" was calulated PER layer.
-        $x_travel = $direction * ($this->getNoseConeStartX($layer) + $this->layer_properties[$layer]['lead_distance'] - $this->current_x);
+        $x_travel = $this->getNoseConeStartX($layer) + $this->layer_properties[$layer]['lead_distance'] - $this->current_x;
         
         $nose_cone_cylinder_start = $this->current_x;
        
@@ -906,9 +919,9 @@ public function generatePassCone($layer) {
         
         
         /* Now we need to do the Cone */
-        array_push($this->gcodes,"START OF CONE");
+        array_push($this->gcodes,"(START OF CONE)");
         foreach ($this->nose_cone_points as $key => $value) {
-           // Skip the first point - it is the last point done before           
+           // Skip the first point - we don't have speed data and this mucks up movements.         
            if ($key > 1) {
                $cf_angle = $value['cf_angle'];
                $s_travel = $this->nose_cone_points[$key]['s_travel'];;
@@ -917,10 +930,10 @@ public function generatePassCone($layer) {
                $x_travel = $this->nose_cone_points[$key]['x_travel'];
             
                // In the transitions we ALWAYS move at speed that will allow us to get to the desired CF ANGLE
-               $x_travel = $direction * $x_travel;
+               $x_travel = $x_travel;
 
                // Work out how far to rotate the z-axis
-               $z_angle = $this->getSpindleDirection() * $direction * $z_angle;          
+               $z_angle = $this->getSpindleDirection() * $z_angle;          
 
                $this->generateXYCode($layer, $x_travel, $s_travel, $z_angle, $feedrate, $this->getCFAngle($layer));  
                
@@ -928,8 +941,11 @@ public function generatePassCone($layer) {
         }
         
         
+        # We are going back now...so direction changes.
+        $direction = -1;
+        
         // Do the nose Cylindrical move back
-        array_push($this->gcodes,"CYLINDER BACK...");
+        array_push($this->gcodes,"(CYLINDER BACK...)");
         # This is Where we do the CONE Component
         # This depends upon direction....
         #                   starting X, starting Y, starting z 
@@ -939,11 +955,11 @@ public function generatePassCone($layer) {
         # This has to be some distance PAST the start of the Cone Base...because the Carbon Fiber vectors is trailing
         # the position of the DElivery Head. WE know the distance it trails depends upon the CF Angle 
         # We are adopting the CYLINDER code and this "distance" was calulated PER layer.
-        $x_travel = $direction * ($nose_cone_cylinder_start - $this->getNoseConeStartX($layer) - $this->layer_properties[$layer]['lead_distance']);
-        print "XXXX = " . $x_travel . "<br/>";
+        $x_travel = ($nose_cone_cylinder_start - $this->getNoseConeStartX($layer) - $this->layer_properties[$layer]['lead_distance']);
        
         # The Angular distance to travel to ensure correct laydown angle
-        $s_travel = $this->calculateYTravelDegrees($x_travel, $this->layers[$layer]['cf_angle']);
+        $s_travel = abs($this->calculateYTravelDegrees($x_travel, $this->layers[$layer]['cf_angle']));
+        
         
         # The optimum z angle for the cylinder sections
         $z_angle  = $this->getSpindleDirection() * $direction * $this->optimum_z_angle;  // work out how much further to rotate from current position to get to optimum angle.
@@ -958,7 +974,7 @@ public function generatePassCone($layer) {
         
         
         
-        array_push($this->gcodes,"TRANSITION OUT!");
+        array_push($this->gcodes,"(TRANSITION OUT)");
         // Do a transition - i.e. no x-movement, only Y and Z
         foreach ($this->transition_out_move as $key => $value) {
             $cf_angle = $value['cf_angle'];
@@ -980,6 +996,7 @@ public function generatePassCone($layer) {
         
     }
 
+    
     
     
     public function calculateXSpeed($feedrate, $x_travel, $cf_angle) {
@@ -1171,9 +1188,17 @@ public function generatePassCone($layer) {
             $this->coneCalculations($layer);
           
             
-            // Just do one pass for now
-            $this->generatePassCone($layer);
+            // Perform the Passes
+            $this->current_pass = 0;
+            $s_angle_starting_angle = $this->current_s;
+            $num_passes = 10;
+            for ($i = 1; $i <= $num_passes; $i++) {
+               $this->generatePassCone($layer, $s_angle_starting_angle);
+            }
             
+            
+            // We work out how many degrees we have to rotate to return to beginning (i.e. integer # of rotations)
+           
             
             /*
            $this->current_pass = 0;
@@ -1461,7 +1486,7 @@ if ($debug == 1) {
             // Y - POS - Mandrel rotation
             $y_pos = round($phi_rel * $this->getMandrelRadius() * $meters_to_mm,0);
             // Z - POS - Presentation of the CF by dispenser head
-            $z_pos = round((180 / pi()) * acos($v_unit[1]),0);
+            $z_pos = $this->sign($axial_speed) * round((180 / pi()) * acos($v_unit[1]),0);
             
             // We want the RELATIVE X 
             
@@ -1548,6 +1573,10 @@ if ($debug == 1) {
         
         
     }    
+    
+    public function sign($n) {
+       return ($n > 0) - ($n < 0);
+    }
 }
 
 
