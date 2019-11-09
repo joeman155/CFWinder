@@ -38,7 +38,7 @@ USE AT YOUR OWN RISK.
                         Distance from mandrel surface to eyelet (meters)
                     </td>
                     <td>
-                        <input type="text" name="eyeletDistance" value="0.007" />
+                        <input type="text" name="eyeletDistance" value="0.02" />
                     </td>
                 </tr>                           
                 <tr>
@@ -46,7 +46,7 @@ USE AT YOUR OWN RISK.
                         Height of eyelet above Mandrel center-line (meters)
                     </td>
                     <td>
-                        <input type="text" name="eyeletHeight" value="0.014" />
+                        <input type="text" name="eyeletHeight" value="0.010" />
                     </td>
                 </tr>                              
                 <tr>
@@ -76,7 +76,7 @@ USE AT YOUR OWN RISK.
                 </tr>              
                 <tr>
                     <td>Horizontal starting position of Nose Cone Base (meters)</td>
-                    <td><input type="text" name="nose_cone_start_x" value="0.2" /></td>
+                    <td><input type="text" name="nose_cone_start_x" value="0.19" /></td>
                 </tr>      
                 <tr>
                     <td>Horizontal ending position of Nose Cone Top (meters)</td>
@@ -84,7 +84,7 @@ USE AT YOUR OWN RISK.
                 </tr>   
                 <tr>
                     <td>Radius of Nose Cone Top (meters)</td>
-                    <td><input type="text" name="nose_cone_top_radius" value="0.01" /></td>
+                    <td><input type="text" name="nose_cone_top_radius" value="0.012" /></td>
                 </tr>                  
             </table>
 

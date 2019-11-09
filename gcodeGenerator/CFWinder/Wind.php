@@ -160,9 +160,7 @@ class Wind {
         $this->nose_cone_cf_closest_approach_to_tip = 0.17;   // 0.15 meters from tip
         $this->nose_cone_wind_time_per_pass         = 10;     // Seconds to do there and back
         $this->nose_cone_num_data_points            = 200;
-        $this->seconds_per_tick                    = 0.1;
-
-   
+        $this->seconds_per_tick                     = 0.1;
 
     }
     
@@ -319,6 +317,9 @@ class Wind {
     }   
  
     
+    /*
+     * This is for the Cylindrical part BEFORE the nosecone 'section'
+     */
     public function calculateSurfaceArea($layer) {
         return pi() * 2 * $this->mandrelRadius * $this->getTubeLength($layer);  // Changed to useful length
     }
@@ -334,7 +335,6 @@ class Wind {
      * i.e. the goal here is to work out how much CF area to cover CENTRAL area of tube, not transitions
      */
     public function calculateCFLengthRequiredOneLayer($layer) {
-        // print "For Layer : " . $layer . ", the suface area is " . $this->calculateSurfaceArea($layer) . " and the CF width is " . $this->cf_width . "<br/>"; // JOE
         return 2 * $this->calculateSurfaceArea($layer)/ $this->cf_width;
     }
     
@@ -354,8 +354,6 @@ class Wind {
      */
     public function startTransitionXDistance($layer)
     {
-      // return $this->calculateXTravelMeters($this->layers[$layer]['transition_start_wind'], $this->getCFAngle($layer));
-      // return $this->layers[$layer]['transition_start_length'];
         return $this->layer_properties[$layer]['transition_start_length'];
     }
     
@@ -403,7 +401,6 @@ class Wind {
      */
     public function calculateCFLength($cf_angle, $x_length) {
         $len = abs($x_length / cos(pi() * $cf_angle/180));  // Changed to Useful Tube Length
-        // print "Length: " . $len . "<br/>";
         return $len;
     }    
     
@@ -416,7 +413,6 @@ class Wind {
      * 
      */
     public function calculatePassesToCoverMandrel($layer) {
-        // print "For layer " . $layer . ", " . $this->calculateCFLengthRequiredOneLayer($layer) . "<br/>";  // JOE
         return ceil(($this->calculateCFLengthRequiredOneLayer($layer)/2) / $this->calculateCFMetersOnePassStraight($layer));
     }
        
@@ -644,7 +640,7 @@ class Wind {
       * We also calculate the final X position after this transition
       */
      public function createInMoveTransitionSchedule($layer) {
-         
+         $this->layers[$layer]['in_transition_length'] = 0;
          $move_len = count($this->transition_in_schedule);
          for ($i = 1; $i < $move_len; $i++) {
              $feedrate  = $this->transition_in_schedule[$i]['feedrate'];  // Use the END feedrate
@@ -660,8 +656,7 @@ class Wind {
              $this->transition_in_move[$i-1]['cf_angle'] = $cf_angle;
              $this->transition_in_move[$i-1]['x_travel'] = $x_travel;
              
-             
-             
+             $this->layers[$layer]['in_transition_length'] = $this->layers[$layer]['in_transition_length'] + $x_travel;
              $this->layer_properties[$layer]['transition_start_length'] = $this->layer_properties[$layer]['transition_start_length'] + $x_travel;
          }
          
@@ -734,9 +729,10 @@ class Wind {
             $this->transition_in_schedule[$i]['cf_angle'] = $cf_angle;
    
         }
-    
     }
 
+    
+    
     public function deriveOptimumCFAngle ($v3, $z_distance) 
     {
         $v3[2] = $z_distance;
@@ -1195,116 +1191,7 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
             for ($i = 1; $i <= $num_passes; $i++) {
                $this->generatePassCone($layer, $s_angle_starting_angle);
             }
-            
-            
-            // We work out how many degrees we have to rotate to return to beginning (i.e. integer # of rotations)
-           
-            
-            /*
-           $this->current_pass = 0;
-           for ($i = 1; $i <= $this->calculatePassesToCoverMandrel($layer) * 2; $i++) {
-              $this->generatePassCone($layer);
-           }        
-             *
-             */
-        
         }
-        
-        
-        // DO NOT THINK WE WILL NEED THIS.
-        // Generate the Pre-Cone (equal radius section)
-        
-        
-        
-        // Geneate the Nosecone wind moves (where the radius goes down)
-        
-        
-        
-        // Generate Post-cone wind
-        // Here we advance say 3cm and let the mandrel wind and bring the Z axis slowly into 0.
-        // This is very similar to normal tubes. Because the angle is already getting lower as we 
-        // move right, we probably don't need the post pass transistion like that in the pure tube winding s/w
-        
-        
-        // Turn Around (and position accordingly
-        // If we know we went around say x * 360 + y  (where X = integer) degrees then we know
-        // if we travel back ...it will be 2 * x * 260 + 2 * y degrees... and we want to be sure
-        // it is BACK where we started...or 180 degrees from where we started Minimum
-        
-        
-        
-        
-        // Pre-Wind BACK to beginning
-        
-        
-        
-        // Nose Cone part
-        
-        
-        
-        // TUBE Part
-        
-        
-        // Turn around and advance one "CF" width unit
-        
-        
-        // REPEAT
-        
-        
-        
-        /*
-        // Create all the passes
-        for ($layer = 0; $layer < count($this->layers); $layer++) {
-            $this->calculations($layer);
-          
-           $this->current_pass = 0;
-           for ($i = 1; $i <= $this->calculatePassesToCoverMandrel($layer) * 2; $i++) {
-              $this->generatePass($layer);
-           }
-           
-           
-           // User Interation between layers.
-           array_push($this->gcodes, "M1");
-           
-           // We want overlap between layers, so we advance by 1/2 distance for ensuring NO overlap.
-           $feedrate = $this->transition_feed_rate + 91;
-           $s_travel = $this->actualCFAdvancementAngle($layer)/2;  // Divisor of 2 is key here...
-           $z_angle = 0;                                           // Should be at end...so z_angle should already be ZERO.
-           $this->generateYCode($layer, $s_travel, $z_angle, $feedrate);           
-
-        
-        }
-        
-       
-        
-       // HOTAIR-GUN
-       // Rotation - basically make it spin a long time while moving Carriage back and forward with hot air-gun going
-       // First we put the hot air-gun into position
-       
-       // Each travel = about 20 seconds. i.e. 6000 mm/min
-       $feedrate = 6000;        
-       $x_pos =  $this->start_x + 0.170;
-       
-       // Move to Start Position
-       array_push($this->gcodes, "G1 F6000 X" . 1000 * $x_pos);
-       $this->current_x = $x_pos;  // We know the gun starting point is 170mm ahead of everything. So we don't heat the Motor!!
-       
-       // We wait for user to turn on Hot Air Gun, Cut the CF ... No more tow winding...
-       // ... and then press 'S' key to resume...
-       array_push($this->gcodes, "M1");  
-       
-       // The length of the piece we are winding tells us how far we need to move the HeatGun
-       $x_travel = ($this->max_x - $this->start_x);
-      
-       // $x_travel_trail = 0.17;    // 2 Meters
-       $s_travel = 1800; // 1800 degrees (i.e. 5 revolutions)
-       $z_angle = 0;     // No need to move this.
-       $cf_angle = 45;   // Middle of the range Angle
-       for ($i = 0; $i < 720; $i++) {
-           $this->generateXYCode(null, $x_travel, $s_travel, $z_angle, $feedrate, $cf_angle);
-           $this->generateXYCode(null, -1 * $x_travel, $s_travel, $z_angle, $feedrate, $cf_angle);
-       }
-       */
        
        // Finish the GCode file
        array_push($this->gcodes, "M2");
@@ -1332,7 +1219,7 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
      */
     public function coneCalculations($layer) {
         
-        $debug = 0;
+        $debug = 1;
         
         // PREV POINTS
         $x_pos_prev = 0;
@@ -1359,7 +1246,6 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
         $cone_hyp = $this->getMandrelRadius() / Sin($alpha);
         
         // Theta
-        $max_theta = 2 * pi() * $this->getMandrelRadius() / $cone_hyp;
         $theta_a   = asin($this->nose_cone_cf_closest_approach_to_tip / $cone_hyp);
         
         // Ratio of circumferences of circles
@@ -1371,7 +1257,6 @@ if ($debug == 1) {
         print "Cot_A:     " . $cot_a . "<br/>";
         print "Cone Hyp:  " . $cone_hyp . "<br/>";
         print "Theta A:   " . $theta_a . "<br/>";
-        print "MAX Theta: " . $max_theta . "<br/>";
         print "k:         " . $k . "<br/>";
         print "</pre>";
         
@@ -1477,9 +1362,7 @@ if ($debug == 1) {
             $v[0] = 0;
             // Get the Unit vector
             $v_unit = $this->vectorUnit($v);
-            
-//            print "V1 = " . $v_unit[1] . "<br />";
-            
+                        
            
             // X - POS - Resin Bath
             $x_pos = ($lead_distance + ($cone_hyp - $this->nose_cone_cf_closest_approach_to_tip/Sin($theta)) * ($cot_a/$k));
@@ -1522,7 +1405,22 @@ if ($debug == 1) {
 } 
 
 
-     // Then we continue down back.
+     // We wish to know HOW long the cylindrical section of the nose cone is.
+     // This isn't STRAIGHT-FORWARD
+     // We know the WHOLE cylindial part is bewteen X = 0 (if $this->start_x - 0) AND $this->nose_cone_start_x
+     // The LOWER part of this is the transition.... We know the WHOLE transition requires the 
+     // dispenser to move from $x = 0 to $x = $this->layers[$layer]['in_transition_length']
+     // HOWEVER
+     // The CF contact with the Mandrel is lagging by $this->layer_properties[$layer]['lead_distance']
+     //
+     // HENCE THE CALCULATION BELOW
+     //
+     $length_cylinder = $this->nose_cone_start_x - $this->start_x - ($this->layers[$layer]['in_transition_length'] - $this->layer_properties[$layer]['lead_distance']);
+     if ($debug == 1) {
+         print "Length of IN transition: " . $this->layers[$layer]['in_transition_length'] . "<br />";
+         print "Lead Distance:           " . $this->layer_properties[$layer]['lead_distance'] . "<br />";
+         print "Length of Cylindrical Section: " . $length_cylinder . "<br/>";
+     }
 
 
     }
