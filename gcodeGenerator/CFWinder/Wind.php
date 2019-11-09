@@ -655,7 +655,7 @@ class Wind {
       * We also calculate the final X position after this transition
       */
      public function createInMoveTransitionSchedule($layer) {
-         $this->layers[$layer]['in_transition_length'] = 0;
+         $this->layer_properties[$layer]['transition_start_length'] = 0;
          $move_len = count($this->transition_in_schedule);
          for ($i = 1; $i < $move_len; $i++) {
              $feedrate  = $this->transition_in_schedule[$i]['feedrate'];  // Use the END feedrate
@@ -671,7 +671,6 @@ class Wind {
              $this->transition_in_move[$i-1]['cf_angle'] = $cf_angle;
              $this->transition_in_move[$i-1]['x_travel'] = $x_travel;
              
-             $this->layers[$layer]['in_transition_length'] = $this->layers[$layer]['in_transition_length'] + $x_travel;
              $this->layer_properties[$layer]['transition_start_length'] = $this->layer_properties[$layer]['transition_start_length'] + $x_travel;
          }
          
@@ -1293,7 +1292,7 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
         
         
         // DEBUGGING
-        $debug = 1;
+        $debug = 0;
         
         // PREV POINTS
         $x_pos_prev = 0;
@@ -1477,15 +1476,14 @@ if ($debug == 1) {
      // This isn't STRAIGHT-FORWARD
      // We know the WHOLE cylindial part is bewteen X = 0 (if $this->start_x - 0) AND $this->nose_cone_start_x
      // The LOWER part of this is the transition.... We know the WHOLE transition requires the 
-     // dispenser to move from $x = 0 to $x = $this->layers[$layer]['in_transition_length']
+     // dispenser to move from $x = 0 to $x = $this->startTransitionXDistance($layer)
      // HOWEVER
      // The CF contact with the Mandrel is lagging by $this->layer_properties[$layer]['lead_distance']
      //
      // HENCE THE CALCULATION BELOW
      //
-     $length_cylinder = $this->nose_cone_start_x - $this->start_x - ($this->layers[$layer]['in_transition_length'] - $this->layer_properties[$layer]['lead_distance']);
+     $length_cylinder = $this->nose_cone_start_x - $this->start_x - ($this->startTransitionXDistance($layer) - $this->layer_properties[$layer]['lead_distance']);
      if ($debug == 1) {
-         print "delete Length of IN transition: " . $this->layers[$layer]['in_transition_length'] . "<br />";
          print "Length of IN transition: " . $this->startTransitionXDistance($layer) . "<br>";
          print "Lead Distance:           " . $this->layer_properties[$layer]['lead_distance'] . "<br />";
          print "Length of Cylindrical Section: " . $length_cylinder . "<br/>";
