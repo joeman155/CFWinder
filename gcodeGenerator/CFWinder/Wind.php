@@ -632,7 +632,11 @@ class Wind {
             
         }
     }
+
     
+    public function sign($n) {
+       return ($n > 0) - ($n < 0);
+    }    
     
      /*
       *  Create the actual movements required for the IN transition.
@@ -993,7 +997,17 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
     }
 
     
-    
+    /*
+     * This function was created during creation of Nose Cone. It's purpose is to work out how many passes
+     * to cover entire bottom of Nose Cone. We can work this out by looking at circumference of bottom, knowing the
+     * amount we advance each time and dividing the second into the first.
+     */
+    public function getNumberOfPasses() {
+        $num_passes = 10;
+        //TOTO
+        
+        return $num_passes;
+    }
     
     public function calculateXSpeed($feedrate, $x_travel, $cf_angle) {
         $x_speed = abs($feedrate/ sqrt(1 + pow($cf_angle/$x_travel, 2)))/60;
@@ -1177,18 +1191,15 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
         // Get the wind "started"
         // Create all the passes
         for ($layer = 0; $layer < count($this->layers); $layer++) {
-            // This does all the calculations for Cylindrical section of the Build      
+            // This does all the calculations the entire laydown of Carbon Fiber    
             $this->calculations($layer);
             
-            // This does all the calculations for Nose Cone section of the Build.
-            $this->coneCalculations($layer);
-          
             
-            // Perform the Passes
+            // Laydown the Carbon Fiber
             $this->current_pass = 0;
             $s_angle_starting_angle = $this->current_s;
             $num_passes = 10;
-            for ($i = 1; $i <= $num_passes; $i++) {
+            for ($i = 1; $i <= $this->getNumberOfPasses(); $i++) {
                $this->generatePassCone($layer, $s_angle_starting_angle);
             }
         }
@@ -1210,45 +1221,84 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
     }
 
     
+
+    
+    
+    public function calculations($layer) {
+        
+        $this->calcsCylinder($layer);
+        
+        $this->calcsNoseCone($layer);
+    }    
+    
+    public function calcsCylinder($layer) {
+        
+        
+        // Calculations for Cylindrical part of Nose Cone
+        $cf_angle_y = $this->calculateCFYAngle($this->getMandrelRadius(), $this->eyeletDistance, $this->eyeletHeight);
+
+        $v2 = $this->deriveVectorOriginMandrel($cf_angle_y);
+        
+        $v3 = $this->deriveVectorDispenserMandrel($cf_angle_y);
+        
+        $z_component = $this->deriveMaxVectorDispenserMandrel($v3, $this->layers[$layer]['cf_angle']);
+        
+        $this->layer_properties[$layer]['lead_distance'] = $z_component;
+        $this->layer_properties[$layer]['transition_end_length'] = $z_component;
+        
+        // Work out 'optimum' angle for this
+        $this->optimum_z_angle = $this->deriveOptimumCFAngle($v3, $z_component);
+         
+        // Generate transistion data for END of Pass
+        $this->generateInPoints($this->layers[$layer]['transition_start_wind'], $this->transition_steps_in, $z_component, $v3);       
+        
+        // Generate transistion data for START of Pass
+        $this->generateOutPoints($this->layers[$layer]['transition_end_wind'], $this->transition_steps_out, $z_component, $v3);
+        
+        // Generate array of moves to GET the transitions done
+        $this->createInMoveTransitionSchedule($layer);
+        $this->createOutMoveTransitionSchedule();
+ 
+    }    
+
+
     /*
-     * In coneCalculations, we need to calculate all the x_travel, s_travel, z_travel to move the 
+     * In calcsNoseCone, we need to calculate all the x_travel, s_travel, z_travel to move the 
      * tool to ensure we get a path as defined by CONE value
      * 
-     * All values are "RELATIVE" to the current starting position
+     * All values are "RELATIVE" to the current starting position and is returned to array nose_cone_points
      * 
      */
-    public function coneCalculations($layer) {
+    public function calcsNoseCone($layer) {
         
+        
+        // DEBUGGING
         $debug = 1;
         
         // PREV POINTS
         $x_pos_prev = 0;
         $s_angle_prev = 0;
         
-        // Generic parameters
+        // Conversion contants
         $meters_to_mm = 1000;
         $seconds_to_minutes = 60;
                  
-        
+     
         if ($debug == 1) {
            print $this->getMandrelRadius()  .   "   " . $this->nose_cone_top_radius . "   " . $this->nose_cone_stop_x . "   " . $this->nose_cone_start_x . "<br/>";
         }
-        
         
         // Angles
         $alpha     = atan(($this->getMandrelRadius() - $this->nose_cone_top_radius)/ ($this->nose_cone_stop_x - $this->nose_cone_start_x));
         $cot_a     = 1 / tan($alpha);
         
-        
-        // Hyponensue distanace from base to theoretical point of cone. We say Theoretical because in actual
-        // fact we have a truncated Nose COone
-        // $cone_hyp = $this->getMandrelRadius() / Sin(atan(($this->getMandrelRadius() - $this->nose_cone_top_radius)/($this->nose_cone_stop_x - $this->nose_cone_start_x)));
+        // Hyponensue distanace from base to theoretical point of cone. We say Theoretical because in actual fact we have a truncated Nose Cone
         $cone_hyp = $this->getMandrelRadius() / Sin($alpha);
         
         // Theta
         $theta_a   = asin($this->nose_cone_cf_closest_approach_to_tip / $cone_hyp);
         
-        // Ratio of circumferences of circles
+        // Ratio of circumferences of circles - 2d : 3d
         $k         = (2 * pi() * $cone_hyp)/ (2 * pi() * $this->getMandrelRadius());
         
 if ($debug == 1) {        
@@ -1395,9 +1445,7 @@ if ($debug == 1) {
             print "<td>" . round($lead_distance * $meters_to_mm, 0) . "</td>";
             print "</tr>";
 }            
-            
-            // print "X,Y,Z = " . $x_pos . "   " . $y_pos . "   " . $z_pos . "   " . $rotation_speed_display . "   " . $axial_speed_display . " <br />";
-            
+                        
         }
         
 if ($debug == 1) {   
@@ -1424,57 +1472,10 @@ if ($debug == 1) {
 
 
     }
-    
-    
-    
-    
-    public function calculations($layer) {
-        
-        $cf_angle_y = $this->calculateCFYAngle($this->getMandrelRadius(), $this->eyeletDistance, $this->eyeletHeight);
 
-        $v2 = $this->deriveVectorOriginMandrel($cf_angle_y);
-        
-        $v3 = $this->deriveVectorDispenserMandrel($cf_angle_y);
-        
-        $z_component = $this->deriveMaxVectorDispenserMandrel($v3, $this->layers[$layer]['cf_angle']);
-        
-        $this->layer_properties[$layer]['lead_distance'] = $z_component;
-        $this->layer_properties[$layer]['transition_end_length'] = $z_component;
-        
-        
-        
-        
-        // Work out 'optimum' angle for this
-        $this->optimum_z_angle = $this->deriveOptimumCFAngle($v3, $z_component);
-        // print "Optimum z Angle: " . $this->optimum_z_angle . "<br/>"; 
-         
-        
-        // Generate transistion data for END of Pass
-        // print "IN <br />";
-        $this->generateInPoints($this->layers[$layer]['transition_start_wind'], $this->transition_steps_in, $z_component, $v3);
-        // print("<pre>".print_r($this->transition_in_schedule,true)."</pre>");
-        
-        
-        // Generate transistion data for START of Pass
-        // print "OUT <br />";
-        $this->generateOutPoints($this->layers[$layer]['transition_end_wind'], $this->transition_steps_out, $z_component, $v3);
-        // print("<pre>".print_r($this->transition_out_schedule,true)."</pre>");        
-        
-        
-        
-        // Generate array of moves to GET the transitions done
-        $this->createInMoveTransitionSchedule($layer);
-        $this->createOutMoveTransitionSchedule();
-        
-        
-        // print("<pre>".print_r($this->transition_in_move,true)."</pre>");
-        
-        
-    }    
     
-    public function sign($n) {
-       return ($n > 0) - ($n < 0);
-    }
+
 }
+
 
 
