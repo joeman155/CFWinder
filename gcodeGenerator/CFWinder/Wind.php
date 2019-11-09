@@ -316,6 +316,14 @@ class Wind {
         return round(360 * $this->actualCFAdvancement($layer) /$this->getMandrelCircumference(),3);
     }   
  
+    /*
+     * This is the distance we need to advance (meters) tangentially to ensure
+     * there is no gap and no overlap of the CF fiber.
+     */
+    public function idealCFAdvancementAngle($layer) {
+        return (180/pi()) * $this->idealCFAdvancement($layer) / $this->mandrel_speed_conversion;
+    }
+        
     
     /*
      * This is for the Cylindrical part BEFORE the nosecone 'section'
@@ -351,6 +359,9 @@ class Wind {
      * calculate startTransitionXDistance($layer)
      * 
      * Calculate how far we move the carriage for the START transition
+     * 
+     * This is NOT the start of the tube since the CF trails the dispenser!!
+     * 
      */
     public function startTransitionXDistance($layer)
     {
@@ -841,7 +852,7 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
         // Hence the simple condition below.
         if ($this->current_pass > 1) {
             
-            array_push($this->gcodes,"(ADVANCING THE CF)");
+            $this->addGcodeComment("ADVANCING THE CF");
             $feedrate = $this->transition_feed_rate + 99;
             
             // Work out how many degrees to get back to the beginning
@@ -864,7 +875,7 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
         
         
         
-        array_push($this->gcodes,"(START OF TRANSISTION IN)");
+        $this->addGcodeComment("START OF TRANSISTION IN");
                 
                 
         // Do the Transition
@@ -888,7 +899,7 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
         
         
         
-        array_push($this->gcodes, "(START OF CYLINDRICAL)");
+        $this->addGcodeComment("START OF CYLINDRICAL");
         
         # This is Where we do the CONE Component
         # This depends upon direction....
@@ -919,7 +930,8 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
         
         
         /* Now we need to do the Cone */
-        array_push($this->gcodes,"(START OF CONE)");
+        $this->addGcodeComment("START OF CONE");
+        
         foreach ($this->nose_cone_points as $key => $value) {
            // Skip the first point - we don't have speed data and this mucks up movements.         
            if ($key > 1) {
@@ -945,7 +957,7 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
         $direction = -1;
         
         // Do the nose Cylindrical move back
-        array_push($this->gcodes,"(CYLINDER BACK...)");
+        $this->addGcodeComment("CYLINDER BACK...");
         # This is Where we do the CONE Component
         # This depends upon direction....
         #                   starting X, starting Y, starting z 
@@ -974,7 +986,7 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
         
         
         
-        array_push($this->gcodes,"(TRANSITION OUT)");
+        $this->addGcodeComment("TRANSITION OUT");
         // Do a transition - i.e. no x-movement, only Y and Z
         foreach ($this->transition_out_move as $key => $value) {
             $cf_angle = $value['cf_angle'];
@@ -1002,9 +1014,9 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
      * to cover entire bottom of Nose Cone. We can work this out by looking at circumference of bottom, knowing the
      * amount we advance each time and dividing the second into the first.
      */
-    public function getNumberOfPasses() {
-        $num_passes = 10;
-        //TOTO
+    public function getNumberOfPasses($layer) {
+        
+        $num_passes = ceil(360 / $this->idealCFAdvancementAngle($layer));
         
         return $num_passes;
     }
@@ -1194,12 +1206,15 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
             // This does all the calculations the entire laydown of Carbon Fiber    
             $this->calculations($layer);
             
+            // Print out # of passes
+            $this->addGcodeComment("Number of passes: " . $this->getNumberOfPasses($layer));
             
             // Laydown the Carbon Fiber
             $this->current_pass = 0;
             $s_angle_starting_angle = $this->current_s;
             $num_passes = 10;
-            for ($i = 1; $i <= $this->getNumberOfPasses(); $i++) {
+            for ($i = 1; $i <= $this->getNumberOfPasses($layer); $i++) {
+               $this->addGcodeComment("Pass: " . $i . " of " . $this->getNumberOfPasses($layer));
                $this->generatePassCone($layer, $s_angle_starting_angle);
             }
         }
@@ -1222,6 +1237,9 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
 
     
 
+    public function addGcodeComment($comment) {
+        array_push($this->gcodes, "(" . $comment . ")");
+    }
     
     
     public function calculations($layer) {
@@ -1230,6 +1248,8 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
         
         $this->calcsNoseCone($layer);
     }    
+    
+    
     
     public function calcsCylinder($layer) {
         
@@ -1465,7 +1485,8 @@ if ($debug == 1) {
      //
      $length_cylinder = $this->nose_cone_start_x - $this->start_x - ($this->layers[$layer]['in_transition_length'] - $this->layer_properties[$layer]['lead_distance']);
      if ($debug == 1) {
-         print "Length of IN transition: " . $this->layers[$layer]['in_transition_length'] . "<br />";
+         print "delete Length of IN transition: " . $this->layers[$layer]['in_transition_length'] . "<br />";
+         print "Length of IN transition: " . $this->startTransitionXDistance($layer) . "<br>";
          print "Lead Distance:           " . $this->layer_properties[$layer]['lead_distance'] . "<br />";
          print "Length of Cylindrical Section: " . $length_cylinder . "<br/>";
      }
