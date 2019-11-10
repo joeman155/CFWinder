@@ -38,6 +38,27 @@ class Wind {
     private $nose_cone_num_data_points;       // Number of data points per pass
     private $nose_cone_points;                // Where we collect all the incremental data points
     
+    private $turn_around_splits;              // How many times you need to return back to the X = 0 position before you are back 
+                                              // to Mandrel angular position.
+                                              // 
+                                              // The intention here is that rather than have successive passes RIGHT next to each other, we space them out.
+                                              // by 2 x pi()/$this->turn_around_splits radians.
+                                              // 
+                                              // e.g. if this is four, then each time you return, you spin:-
+                                              //    Back to beginning
+                                              //    PLUS 
+                                              //    AMount to bring you 2 x pi()/$this->turn_around_splits around
+                                              // 
+                                              //   If this amount is less than 180 degrees, we add an additional 360 degrees on to it.
+                                              // 
+                                              // When we get to the beginning, (i.e. we do $this->turn_around_splits passes, we ALSO add ADVANCEMENT to move forward!!)
+                                              // This is so we don't overlap.
+                                              // 
+ 
+    
+    
+                                             
+    
     /* The CF takes a "straight line", a geodesic. This is to ensure tight (no slip fit) 
      * 
      */
@@ -161,6 +182,10 @@ class Wind {
         $this->nose_cone_wind_time_per_pass         = 10;     // Seconds to do there and back
         $this->nose_cone_num_data_points            = 200;
         $this->seconds_per_tick                     = 0.1;
+        
+        
+        // May make this parameter driven later.
+        $this->turn_around_splits = 4;
 
     }
     
@@ -857,17 +882,32 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
             // Work out how many degrees to get back to the beginning
             $degrees_back_to_beginning = 360 * (1 - (($this->current_s - $s_angle_before)/360 - floor(($this->current_s - $s_angle_before)/360)));
             
+            $this->addGcodeComment("CURRENT S: " . $this->current_s);
             
+            $this->addGcodeComment("Degrees back: " . $degrees_back_to_beginning);
+
+            
+            $move_amount = $degrees_back_to_beginning + ($this->current_pass % $this->turn_around_splits) * 360/$this->turn_around_splits;
+            
+            $this->addGcodeComment("MOVE AMOUNT: " . $move_amount);
             // Extra SPindle turn is more of a guide for Nose Cone... it is the minimum degrees to turn at end
             // If to get back to beginning we exceed the minimum, we do just this.
             // If we don't, then we need to move back to beginning AND then move another 360 degrees.
-            if ($degrees_back_to_beginning > $this->layers[$layer]['extra_spindle_turn']) {
-                $s_move = $degrees_back_to_beginning;
-            } else {
-                $s_move = $degrees_back_to_beginning + 360;
+            if ($move_amount < $this->layers[$layer]['extra_spindle_turn']) {
+                $move_amount = $move_amount + 360;
+            }
+            $this->addGcodeComment("MOVE AMOUNT2: " . $move_amount);
+            
+            
+            // after $this->turn_around_splits turns, we go advance a little
+            if ($this->current_pass % $this->turn_around_splits == 0) {
+                $move_amount = $move_amount + $this->actualCFAdvancementAngle($layer);
             }
             
-            $s_travel = $this->actualCFAdvancementAngle($layer) + $s_move;
+            $this->addGcodeComment("MOVE AMOUNT3: " . $move_amount);
+            
+            
+            $s_travel = $move_amount;
             $z_angle = 0;
             $this->generateYCode($layer, $s_travel, $z_angle, $feedrate);
         } 
@@ -1292,7 +1332,7 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
         
         
         // DEBUGGING
-        $debug = 0;
+        $debug = 1;
         
         // PREV POINTS
         $x_pos_prev = 0;
