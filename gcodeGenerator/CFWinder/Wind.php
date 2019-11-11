@@ -820,7 +820,7 @@ class Wind {
             $feedrate = $value['feedrate'];
             $z_angle  = $value['z_angle'];
             $x_travel = $value['x_travel'];
-            
+             
             // In the transitions we ALWAYS move at speed that will allow us to get to the desired CF ANGLE
             $x_travel = $direction * $x_travel;
 
@@ -862,14 +862,15 @@ class Wind {
     }
     
     
-public function generatePassCone($layer, $s_angle_starting_angle) {
+public function generatePassCone($layer) {
         
         $this->current_pass++; 
         
         // Set Direction on START of pass
         $direction = 1;
         
-
+        // The starting Angle - RIGHT AT BEGINNING
+        $s_angle_starting_angle = 0;
         
         // In normal cylinders a Pass was in a SINGLE DIRECTION. i.e. you would need two passes to get back to where you started
         // For Nose Cone a Single Pass gets you there AND back...so each pass, except for the first, we need to advanced the CF.
@@ -880,19 +881,18 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
             $feedrate = $this->transition_feed_rate + 99;
             
             // Work out how many degrees to get back to the beginning
-            // $degrees_back_to_beginning = 360 * (1 - (($this->current_s - $s_angle_before)/360 - floor(($this->current_s - $s_angle_before)/360)));
             $degrees_back_to_beginning = 360 * (1 - (($this->current_s - $s_angle_starting_angle)/360 - floor(($this->current_s - $s_angle_starting_angle)/360)));
             
-            $this->addGcodeComment("s_angle_starting_angle S: " . $s_angle_starting_angle);
-            $this->addGcodeComment("CURRENT S: " . $this->current_s);
+            //$this->addGcodeComment("s_angle_starting_angle S: " . $s_angle_starting_angle);
+            // $this->addGcodeComment("CURRENT S: " . $this->current_s);
             
             
-            $this->addGcodeComment("Degrees back: " . $degrees_back_to_beginning);
+            // $this->addGcodeComment("Degrees back: " . $degrees_back_to_beginning);
             $move_amount = $degrees_back_to_beginning + (($this->current_pass % $this->turn_around_splits) - 1) * 360/$this->turn_around_splits;
             
             
-            $this->addGcodeComment("MOVE AMOUNT: " . $move_amount);
-            // Extra SPindle turn is more of a guide for Nose Cone... it is the minimum degrees to turn at end
+            // $this->addGcodeComment("MOVE AMOUNT: " . $move_amount);
+            // Extra Spindle turn is more of a guide for Nose Cone... it is the minimum degrees to turn at end
             // If to get back to beginning we exceed the minimum, we do just this.
             // If we don't, then we need to move back to beginning AND then move another 360 degrees.
             //
@@ -901,11 +901,11 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
             if ($move_amount < $this->layers[$layer]['extra_spindle_turn']) {
                 $move_amount = $move_amount + 360;
             }
-            $this->addGcodeComment("MOVE AMOUNT2: " . $move_amount);
+            // $this->addGcodeComment("MOVE AMOUNT2: " . $move_amount);
             
             $offset = floor(($this->current_pass  -1 )/ $this->turn_around_splits);
             
-            $this->addGcodeComment("OFFSET: " . $offset);
+            // $this->addGcodeComment("OFFSET: " . $offset);
             
             
             // Advancement Angle
@@ -916,7 +916,7 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
             //     $move_amount = $move_amount + $this->actualCFAdvancementAngle($layer);
             // }
             
-            $this->addGcodeComment("MOVE AMOUNT3: " . $move_amount);
+            // $this->addGcodeComment("MOVE AMOUNT3: " . $move_amount);
             
             
             $s_travel = $move_amount;
@@ -926,7 +926,7 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
         
         
         
-        $this->addGcodeComment("START OF TRANSISTION IN");
+        // $this->addGcodeComment("START OF TRANSISTION IN");
                 
                 
         // Do the Transition
@@ -1266,10 +1266,9 @@ public function generatePassCone($layer, $s_angle_starting_angle) {
             // Create All the Passes
             for ($i = 1; $i <= $this->getNumberOfPasses($layer); $i++) {
                $this->addGcodeComment("Pass: " . $i . " of " . $this->getNumberOfPasses($layer));
-               // $s_angle_starting_angle = $this->current_s;
-               
-               $s_angle_starting_angle = 0;
-               $this->generatePassCone($layer, $s_angle_starting_angle);
+
+               //Create the pass
+               $this->generatePassCone($layer);
             }
         }
        
