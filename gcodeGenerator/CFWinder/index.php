@@ -85,8 +85,25 @@ USE AT YOUR OWN RISK.
                 <tr>
                     <td>Radius of Nose Cone Top (meters)</td>
                     <td><input type="text" name="nose_cone_top_radius" value="0.012" /></td>
-                </tr>                  
+                </tr> 
+                <tr>
+                    <td colspan="2"><b>Layer properties</b></td>
+                </tr>
+                <tr>
+                    <td>Number of layers</td>
+                    <td><input type="text" name="number_of_layers" value="3" /></td>
+                </tr>        
+                <tr>
+                    <td>Transition Start Wind (degrees)</td>
+                    <td><input type="text" name="cylinder_transition_start_wind" value="90" /></td>
+                </tr>    
+                <tr>
+                    <td>Transition End Wind (degrees)</td>
+                    <td><input type="text" name="cylinder_transition_end_wind" value="90" /></td>
+                </tr>                     
             </table>
+            
+            
 
             <br />
             <H3>A few notes on Nose Cone Definition</H3>
@@ -99,32 +116,6 @@ USE AT YOUR OWN RISK.
                 <li>The radius of Nose Cone Top is the minimum radius of the nose cone. </li>
             </ul>
 
-            <table>
-                <tr>
-                    <th>Enable layer</th>
-                    <th>Carbon Fiber Laydown Angle (deg)</th>
-                    <th>Wind angle per pass </th>
-                    <th>Additional Wind each end (deg)</th>
-                    <th>Transition Start Wind Angle (deg)</th>
-                    <th>Transition End Wind Angle (deg)</th>
-
-                </tr>          
-                <?
-                for ($i = 0; $i < 5; $i++) {
-                ?>
-                <tr>
-                    
-                    <td>Enable Layer <?=$i?><input type="checkbox" name="enable_layer[]" value="<?=$i?>"/></td>
-                    <td><input type="text" name="cf_angle[]" value="45" /></td>
-                    <td><input type="text" name="wind_angle_per_pass[]" value="540" /></td>
-                    <td><input type="text" name="extra_spindle_turn[]" value="120" /></td>
-                    <td><input type="text" name="transition_start_wind[]" value="90" /></td>
-                    <td><input type="text" name="transition_end_wind[]" value="90" /></td>
-                </tr>         
-                <?
-                }
-                ?>
-            </table>
             <br />
             <br />
             <input type="submit" value="Generate GCode" name="generate_gcode" />

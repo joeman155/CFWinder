@@ -27,33 +27,16 @@ $nose_cone_stop_x      = $_REQUEST['nose_cone_stop_x'];
 $nose_cone_top_radius  = $_REQUEST['nose_cone_top_radius'];
 
 
-// Per layer parameters
-$enable_layer          = $_REQUEST['enable_layer'];
-$cf_angle              = $_REQUEST['cf_angle'];
-$wind_angle_per_pass   = $_REQUEST['wind_angle_per_pass'];
-$extra_spindle_turn    = $_REQUEST['extra_spindle_turn'];
-$transition_end_wind   = $_REQUEST['transition_end_wind'];
-$transition_start_wind = $_REQUEST['transition_start_wind'];
+// Common Layer properties
+$cylinder_transition_end_wind    = $_REQUEST['cylinder_transition_end_wind'];
+$cylinder_transition_start_wind = $_REQUEST['cylinder_transition_start_wind'];
+$number_of_layers      = $_REQUEST['number_of_layers'];
 
-
-// Parse layers information and create an array
-for ($i = 0; $i < 5; $i++) {
-    // print "Layer " . $i . " : " . $enable_layer[$i] . "<br/>";
-    $index = $enable_layer[$i];
-    if (isset($index) && $index >= 0) {
-       $layers[$i]['cf_angle']              = $cf_angle[$index];
-       $layers[$i]['wind_angle_per_pass']   = $wind_angle_per_pass[$index];
-       $layers[$i]['extra_spindle_turn']    = $extra_spindle_turn[$index];
-       $layers[$i]['transition_start_wind'] = $transition_start_wind[$index];
-       $layers[$i]['transition_end_wind']   = $transition_end_wind[$index];
-    }
-}
- 
-//   print("<pre>".print_r($layers)."</pre>");
 
 $wind = new Wind($mandrelRadius, $eyeletDistance, $eyeletHeight, $cf_width, $transition_feed_rate, $straight_feed_rate, 
                  $spindle_direction, $start_x, $start_y, $start_z,
-                 $layers, $nose_cone_start_x,  $nose_cone_stop_x, $nose_cone_top_radius);
+                 $number_of_layers, $cylinder_transition_start_wind, $cylinder_transition_end_wind, 
+                 $nose_cone_start_x,  $nose_cone_stop_x, $nose_cone_top_radius);
 
 $wind->generateGCodes();
 ?>
@@ -113,8 +96,6 @@ $wind->generateGCodes();
                 <tr>
                     <th>Layer #</th>
                     <th>Laydown Angle (deg)</th>
-                    <th>Wind angle per<br /> pass (deg)</th>
-                    <th>Additional Wind<br /> each end (deg)</th>
                     <th>Transition Start<br /> Wind Angle (deg)</th>
                     <th>Transition End<br /> Wind Angle (deg)</th>
                     <th># of passes to cover mandrel</th>
@@ -125,21 +106,19 @@ $wind->generateGCodes();
                     <th>~ Length CF (mm)</th>
                 </tr>          
                 <?
-                for ($layer = 0; $layer < count($wind->getLayers()); $layer++) {
+                for ($layer = 0; $layer < $wind->getNumberOfLayers(); $layer++) {
                 ?>
                 <tr>
                     <td>Layer <?=$layer?></td>
-                    <td><?=$wind->getLayers()[$layer]['cf_angle']?></td>
-                    <td><?=$wind->getLayers()[$layer]['wind_angle_per_pass']?></td>
-                    <td><?=$wind->getLayers()[$layer]['extra_spindle_turn']?></td>
-                    <td><?=$wind->getLayers()[$layer]['transition_start_wind']?></td>
-                    <td><?=$wind->getLayers()[$layer]['transition_end_wind']?></td>
-                    <td><?=$wind->calculatePassesToCoverMandrel($layer)?></td>
-                    <td><?=round(1000 * $wind->getTotalTubeLength($layer), 1)?></td>
-                    <td><?=round(1000 * $wind->getTubeLength($layer), 1)?></td>
-                    <td><?=round(1000 * ($wind->getTubeStart($layer) - $wind->getLeadDistance($layer)), 1)?></td>
-                    <td><?=round(1000 * $wind->getLeadDistance($layer), 1)?></td>
-                    <td><?=round(1000 * $wind->getLength($layer), 1)?></td>
+                    <td><?=$wind->getNoseConeCFAngle()?></td>
+                    <td><?=$wind->getTransitionStartWind()?></td>
+                    <td><?=$wind->getTransitionEndWind()?></td>
+                    <td>TODO</td>
+                    <td>TODO</td>
+                    <td>TODO</td>
+                    <td>TODO</td>
+                    <td>TODO</td>
+                    <td>TODO</td>
                 </tr>         
                 <?
                 }
