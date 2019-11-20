@@ -37,6 +37,7 @@ class Wind {
     private $seconds_per_tick;               // How long does each data point occupy in time.
     private $nose_cone_num_data_points;       // Number of data points per pass
     private $nose_cone_points;                // Where we collect all the incremental data points
+    private $nose_cone_cf_double_up;          // # of layers next to each other
     
     // Variables used to help define how we create the cylindrical section of the NoseCone.
     private $nose_cone_cf_angle;              // The CF angle at BASE of the nose cone (used for cylinder)
@@ -140,7 +141,7 @@ class Wind {
     public function __construct($mandrelRadius, $eyeletDistance, $eyeletHeight, $cf_width, $transition_feed_rate, $straight_feed_rate,
                                 $spindle_direction, $start_x=0,  $start_s=0, $start_z=0,
                                 $number_of_layers, $cylinder_transition_start_wind, $cylinder_transition_end_wind, 
-                                $nose_cone_start_x, $nose_cone_stop_x, $nose_cone_top_radius) {
+                                $nose_cone_start_x, $nose_cone_stop_x, $nose_cone_top_radius, $nose_cone_cf_closest_approach_to_tip) {
         
         
         
@@ -185,8 +186,12 @@ class Wind {
         $this->nose_cone_start_x    = $nose_cone_start_x;
         $this->nose_cone_stop_x     = $nose_cone_stop_x;
         $this->nose_cone_top_radius = $nose_cone_top_radius;
+        $this->nose_cone_cf_closest_approach_to_tip = $nose_cone_cf_closest_approach_to_tip;
         
-        $this->nose_cone_cf_closest_approach_to_tip = 0.17;   // 0.15 meters from tip
+        
+        $this->nose_cone_cf_double_up = 2;
+        
+        
         $this->nose_cone_wind_time_per_pass         = 10;     // Seconds to do there and back
         $this->nose_cone_num_data_points            = 200;
         $this->seconds_per_tick                     = 0.1;
@@ -692,6 +697,11 @@ public function generatePassCone($layer) {
         // The starting Angle - RIGHT AT BEGINNING
         $s_angle_starting_angle = 0;
         
+        // Amount to rotate around...to get the different layers done.
+        $advancement_number = ($this->current_pass - 1) % $this->nose_cone_cf_double_up;
+        $this->addGcodeComment("ADVANCEMENT_NUMBER: " . $advancement_number);
+            
+            
         // In normal cylinders a Pass was in a SINGLE DIRECTION. i.e. you would need two passes to get back to where you started
         // For Nose Cone a Single Pass gets you there AND back...so each pass, except for the first, we need to advanced the CF.
         // Hence the simple condition below.
@@ -700,16 +710,59 @@ public function generatePassCone($layer) {
             $this->addGcodeComment("ADVANCING THE CF");
             $feedrate = $this->transition_feed_rate + 99;
             
-            // Work out how many degrees to get back to the beginning
-            $degrees_back_to_beginning = 360 * (1 - (($this->current_s - $s_angle_starting_angle)/360 - floor(($this->current_s - $s_angle_starting_angle)/360)));
+
             
             //$this->addGcodeComment("s_angle_starting_angle S: " . $s_angle_starting_angle);
-            // $this->addGcodeComment("CURRENT S: " . $this->current_s);
+            $this->addGcodeComment("CURRENT S: " . $this->current_s);
+            
+            // Work out how many degrees to get back to the beginning
+            $degrees_back_to_beginning = 360 * (1 - (($this->current_s - $s_angle_starting_angle)/360 - floor(($this->current_s - $s_angle_starting_angle)/360)));            
+            $this->addGcodeComment("Degrees back: " . $degrees_back_to_beginning);
+            
+            // Work out how far to advance it...AROUND the cone
+            // current_pass-1     nose_cone_cf_double_up    =  VALUE
+            // ----------------------------------------------------
+            //      2-1 = 1     %     2                     =    1
+            //      3-1 = 2     %     2                     =    0
+            //      4-1 = 3     %     2                     =    1
+            //      5-1 = 4     %     2                     =    0
+            //      6-1 = 5     %     2                     =    1
+            // .
+            // .
+            // .
+            // So only on 3rd, 5th, 7th... passes we want to advance by turn_around_splits
+            //
+            //
+            //if (($this->current_pass -1) % $this->nose_cone_cf_double_up == 0) {
+               // ($this->current_pass   floor(($this->current_pass  - 1)/$this->nose_cone_cf_double_up) % $this->turn_around_splits   x 360/($this->turn_around_splits)
+               // 
+               // In EXAMPLE below, the /2 (denominator) is the nose_cone_cf_double_up
+               //                   and the %4 is because turn_around_splits = 4
+               // ------------------------------------------------------------------------------------------------------------------------------------------------------
+               //      2                 floor((2 - 1)/2) %4  =  0                                           x 90   = 0
+               //      3                 floor((3 - 1)/2) %4  =  1                                           x 90   = 90
+               //      4                 floor((4 - 1)/2) %4  =  1                                           x 90   = 90
+               //      5                 floor((5 - 1)/2) %4  =  2                                           x 90   = 180
+               //      6                 floor((6 - 1)/2) %4  =  2                                           x 90   = 180
+               //      7                 floor((7 - 1)/2) %4  =  3                                           x 90   = 270
+               //      8                 floor((8 - 1)/2) %4  =  3                                           x 90   = 270
+               //      9                 floor((9 - 1)/2) %4  =  0                                           x 90   = 0
+               //     10                 floor((10- 1)/2) %4  =  0                                           x 90   = 0
+               //     11                 floor((11 - 1)/2) %4  =  1                                          x 90   = 90                         -1    x 90   = 90
+               //     12                 floor((12 - 1)/2) %4  =  1                                          x 90   = 90
+               //     13                 floor((13 - 1)/2) %4  =  2                                          x 90   = 180                                     -1    x 90   = 180
+               //      .
+               //      .
+               //      .
+               //      .           
+               // $move_amount = $degrees_back_to_beginning + (($this->current_pass % $this->turn_around_splits) - 1) * 360/$this->turn_around_splits;
+               $move_amount = $degrees_back_to_beginning + floor(($this->current_pass  - 1)/$this->nose_cone_cf_double_up) % $this->turn_around_splits   * 360/$this->turn_around_splits;
+           // }          
             
             
-            // $this->addGcodeComment("Degrees back: " . $degrees_back_to_beginning);
-            $move_amount = $degrees_back_to_beginning + (($this->current_pass % $this->turn_around_splits) - 1) * 360/$this->turn_around_splits;
-            
+            // We move enough to get pairs of laydowns ADJACNT ...but this advancement is not permanent. It
+            // resets when we rotate based on $this->turn_around_splits
+            $move_amount = $move_amount + $advancement_number * $this->doubleUpAngle();
             
             // $this->addGcodeComment("MOVE AMOUNT: " . $move_amount);
             // Extra Spindle turn is more of a guide for Nose Cone... it is the minimum degrees to turn at end
@@ -721,11 +774,12 @@ public function generatePassCone($layer) {
             if ($move_amount < $this->min_spindle_turn) {
                 $move_amount = $move_amount + 360;
             }
-            // $this->addGcodeComment("MOVE AMOUNT2: " . $move_amount);
+            $this->addGcodeComment("MOVE AMOUNT BASE: " . $move_amount);
             
-            $offset = floor(($this->current_pass  -1 )/ $this->turn_around_splits);
+            // Offset is number of times we need to pass before we apply a PERMANENT  CFAdvancement. Applied when we get back to the beginning.
+            $offset = floor(($this->current_pass  - 1)/ $this->turn_around_splits);
             
-            // $this->addGcodeComment("OFFSET: " . $offset);
+            $this->addGcodeComment("OFFSET: " . $offset);
             
             
             // Advancement Angle
@@ -736,7 +790,7 @@ public function generatePassCone($layer) {
             //     $move_amount = $move_amount + $this->actualCFAdvancementAngle($layer);
             // }
             
-            // $this->addGcodeComment("MOVE AMOUNT3: " . $move_amount);
+            $this->addGcodeComment("FINAL MOVE AMOUNT: " . $move_amount);
             
             
             $s_travel = $move_amount;
@@ -804,16 +858,16 @@ public function generatePassCone($layer) {
         
         
         /* Now we need to do the Cone */
-        $this->addGcodeComment("START OF CONE!!");
+        $this->addGcodeComment("START OF CONE - Path: " . $advancement_number);
         
-        foreach ($this->nose_cone_points as $key => $value) {
+        foreach ($this->nose_cone_points[$advancement_number] as $key => $value) {
            // Skip the first point - we don't have speed data and this mucks up movements.         
            if ($key > 1) {
                // $cf_angle = $value['cf_angle'];
-               $s_travel = $this->nose_cone_points[$key]['s_travel'];;
-               $feedrate = $this->nose_cone_points[$key]['feedrate'];
-               $z_angle  = $this->nose_cone_points[$key]['z_angle'];
-               $x_travel = $this->nose_cone_points[$key]['x_travel'];
+               $s_travel = $this->nose_cone_points[$advancement_number][$key]['s_travel'];;
+               $feedrate = $this->nose_cone_points[$advancement_number][$key]['feedrate'];
+               $z_angle  = $this->nose_cone_points[$advancement_number][$key]['z_angle'];
+               $x_travel = $this->nose_cone_points[$advancement_number][$key]['x_travel'];
             
                // In the transitions we ALWAYS move at speed that will allow us to get to the desired CF ANGLE
                $x_travel = $x_travel;
@@ -843,10 +897,19 @@ public function generatePassCone($layer) {
         # We are adopting the CYLINDER code and this "distance" was calulated PER layer.
         $x_travel = ($nose_cone_cylinder_start - $this->getNoseConeStartX() - $this->layer_properties[$layer]['lead_distance']);
        
+        # See if we are bringing x_travel OUT OF Bounds (< 0)
+        if (abs($x_travel) > $this->current_x) {
+            // If we are, then correct it!
+            $x_travel = -1 * $this->current_x;
+        }
+        
         # The Angular distance to travel to ensure correct laydown angle
         // $s_travel = abs($this->calculateYTravelDegrees($x_travel, $this->layers[$layer]['cf_angle']));
         $s_travel = abs($this->calculateYTravelDegrees($x_travel, $this->getNoseConeCFAngle()));
         
+ //       print 'X TRAVEL: = ' . $x_travel . "<br/>";
+ //       print "S TRAVEL: = " . $s_travel . "<br/>";
+ //       print "CF Angle: = " .$this->getNoseConeCFAngle() . "<br />"; 
         
         
         # The optimum z angle for the cylinder sections
@@ -967,6 +1030,7 @@ public function generatePassCone($layer) {
         $this->current_z = $z_angle;
         
         if ($this->current_x < 0) {
+            $this->addGcodeComment("Tried to send X to " . $this->current_x . ". Setting to zero.");
             $this->current_x = 0;
         }
         
@@ -1076,13 +1140,13 @@ public function generatePassCone($layer) {
         array_push($this->gcodes, "G1 F6000 Z" . $this->start_z);        
         array_push($this->gcodes, "M1");
 
+        // Perform Calculations
+        $layer = 0;
+        $this->calculations($layer);
         
         // Get the wind "started"
         // Create all the passes
         for ($layer = 0; $layer < $this->getNumberOfLayers(); $layer++) {
-            // This does all the calculations the entire laydown of Carbon Fiber    
-            $this->calculations($layer);
-            
             // Print out # of passes
             $this->addGcodeComment("Number of passes: " . $this->getNumberOfPasses());
             
@@ -1123,7 +1187,11 @@ public function generatePassCone($layer) {
     
     public function calculations($layer) {
         // Do Cone Calcs first as we need to get the CF Angle for Cylinder section
-        $this->calcsNoseCone($layer);
+        for ($i = 0; $i < $this->nose_cone_cf_double_up; $i++) {
+            $distance = $this->nose_cone_cf_closest_approach_to_tip - ($i * $this->cf_width);
+            print "Generating Cone information for " . $distance . " - " . $i . "<br />";
+           $this->calcsNoseCone($layer, $distance, $i);
+        }
         
         $this->calcsCylinder($layer);
         
@@ -1171,12 +1239,19 @@ public function generatePassCone($layer) {
      * 
      * All values are "RELATIVE" to the current starting position and is returned to array nose_cone_points
      * 
+     * $layer - layer we are on
+     * $nose_cone_cf_closest_approach_to_tip - distance to TIP of cone
+     * $j                                    - index identifying collection of points for given $nose_cone_cf_closest_approach_to_tip
+     * 
+     * This routine starts with points CLOSEST to NoseCone Tip and progressively travels away from it...by the width
+     * of the CF. So we get overlap
+     * 
      */
-    public function calcsNoseCone($layer) {
+    public function calcsNoseCone($layer, $nose_cone_cf_closest_approach_to_tip, $j) {
         
         
         // DEBUGGING
-        $debug = 0;
+        $debug = 1;
         
         // PREV POINTS
         $x_pos_prev = 0;
@@ -1199,7 +1274,7 @@ public function generatePassCone($layer) {
         $cone_hyp = $this->getMandrelRadius() / Sin($alpha);
         
         // Theta
-        $theta_a   = asin($this->nose_cone_cf_closest_approach_to_tip / $cone_hyp);
+        $theta_a   = asin($nose_cone_cf_closest_approach_to_tip / $cone_hyp);
         
         // Ratio of circumferences of circles - 2d : 3d
         $k         = (2 * pi() * $cone_hyp)/ (2 * pi() * $this->getMandrelRadius());
@@ -1246,7 +1321,7 @@ if ($debug == 1) {
             }
             
             // 2-D space - where we are at.
-            $radius_2d = $this->nose_cone_cf_closest_approach_to_tip / sin($theta);
+            $radius_2d = $nose_cone_cf_closest_approach_to_tip / sin($theta);
 
 
             
@@ -1272,7 +1347,7 @@ if ($debug == 1) {
             
             // Distance from base of cone - in axial direction
             $axial_distance_old = $axial_distance;
-            $axial_distance = ($cone_hyp - $this->nose_cone_cf_closest_approach_to_tip/Sin($theta)) * ($cot_a / $k);
+            $axial_distance = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/Sin($theta)) * ($cot_a / $k);
             $axial_speed = ($axial_distance - $axial_distance_old) / $this->seconds_per_tick;
 
             
@@ -1319,7 +1394,7 @@ if ($debug == 1) {
                         
            
             // X - POS - Resin Bath
-            $x_pos = ($lead_distance + ($cone_hyp - $this->nose_cone_cf_closest_approach_to_tip/Sin($theta)) * ($cot_a/$k));
+            $x_pos = ($lead_distance + ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/Sin($theta)) * ($cot_a/$k));
             // Y - POS - Mandrel rotation
             $y_pos = round($phi_rel * $this->getMandrelRadius() * $meters_to_mm,0);
             // Z - POS - Presentation of the CF by dispenser head
@@ -1327,10 +1402,10 @@ if ($debug == 1) {
             
             // We want the RELATIVE X 
             
-            $this->nose_cone_points[$i]['x_travel'] = ($x_pos - $x_pos_prev);
-            $this->nose_cone_points[$i]['s_travel'] = ($s_angle - $s_angle_prev);
-            $this->nose_cone_points[$i]['z_angle']  = $z_pos;
-            $this->nose_cone_points[$i]['feedrate'] = $total_speed_display;
+            $this->nose_cone_points[$j][$i]['x_travel'] = ($x_pos - $x_pos_prev);
+            $this->nose_cone_points[$j][$i]['s_travel'] = ($s_angle - $s_angle_prev);
+            $this->nose_cone_points[$j][$i]['z_angle']  = $z_pos;
+            $this->nose_cone_points[$j][$i]['feedrate'] = $total_speed_display;
             $x_pos_prev = $x_pos;
             $s_angle_prev = $s_angle;
             
@@ -1384,9 +1459,19 @@ if ($debug == 1) {
 
     }
 
-    
+ public function doubleUpAngle()
+ {
+     // Need to derive tip to base along surface of the Cone
+     $alpha     = atan(($this->getMandrelRadius() - $this->nose_cone_top_radius)/ ($this->nose_cone_stop_x - $this->nose_cone_start_x));
+     $cone_hyp  = $this->getMandrelRadius() / Sin($alpha);
+     
+     
+     $theta1 = acos($this->nose_cone_cf_closest_approach_to_tip/$cone_hyp);
+     $theta2 = acos(($this->nose_cone_cf_closest_approach_to_tip + $this->cf_width)/$cone_hyp);
+          
+     $diff = $theta2 - $theta1;
+     
+     return $diff;
+ }
 
 }
-
-
-

@@ -51,11 +51,11 @@ USE AT YOUR OWN RISK.
                 </tr>                              
                 <tr>
                     <td>Straight Feed Rate (mm/min)</td>
-                    <td><input type="text" name="straight_feed_rate" value="6000" /></td>
+                    <td><input type="text" name="straight_feed_rate" value="8000" /></td>
                 </tr>
                 <tr>
                     <td>Transition Feed Rate (mm/min)</td>
-                    <td><input type="text" name="transition_feed_rate" value="6000" /></td>
+                    <td><input type="text" name="transition_feed_rate" value="8000" /></td>
                 </tr>         
                 <tr>
                     <td>Spindle Rotation Direction</td>
@@ -76,16 +76,20 @@ USE AT YOUR OWN RISK.
                 </tr>              
                 <tr>
                     <td>Horizontal starting position of Nose Cone Base (meters)</td>
-                    <td><input type="text" name="nose_cone_start_x" value="0.19" /></td>
+                    <td><input type="text" name="nose_cone_start_x" value="0.265" /></td>
                 </tr>      
                 <tr>
                     <td>Horizontal ending position of Nose Cone Top (meters)</td>
-                    <td><input type="text" name="nose_cone_stop_x" value="0.5" /></td>
+                    <td><input type="text" name="nose_cone_stop_x" value="0.575" /></td>
                 </tr>   
                 <tr>
                     <td>Radius of Nose Cone Top (meters)</td>
                     <td><input type="text" name="nose_cone_top_radius" value="0.012" /></td>
                 </tr> 
+                <tr>
+                    <td>CF Closest approach to "tip" (meters)</td>
+                    <td><input type="text" name="nose_cone_cf_closest_approach_to_tip" value="0.16" /></td>
+                </tr>                 
                 <tr>
                     <td colspan="2"><b>Layer properties</b></td>
                 </tr>
@@ -99,7 +103,7 @@ USE AT YOUR OWN RISK.
                 </tr>    
                 <tr>
                     <td>Transition End Wind (degrees)</td>
-                    <td><input type="text" name="cylinder_transition_end_wind" value="90" /></td>
+                    <td><input type="text" name="cylinder_transition_end_wind" value="360" /></td>
                 </tr>                     
             </table>
             

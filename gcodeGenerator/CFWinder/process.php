@@ -25,6 +25,7 @@ $start_z = 0;
 $nose_cone_start_x     = $_REQUEST['nose_cone_start_x'];
 $nose_cone_stop_x      = $_REQUEST['nose_cone_stop_x'];
 $nose_cone_top_radius  = $_REQUEST['nose_cone_top_radius'];
+$nose_cone_cf_closest_approach_to_tip = $_REQUEST['nose_cone_cf_closest_approach_to_tip'];
 
 
 // Common Layer properties
@@ -36,7 +37,7 @@ $number_of_layers      = $_REQUEST['number_of_layers'];
 $wind = new Wind($mandrelRadius, $eyeletDistance, $eyeletHeight, $cf_width, $transition_feed_rate, $straight_feed_rate, 
                  $spindle_direction, $start_x, $start_y, $start_z,
                  $number_of_layers, $cylinder_transition_start_wind, $cylinder_transition_end_wind, 
-                 $nose_cone_start_x,  $nose_cone_stop_x, $nose_cone_top_radius);
+                 $nose_cone_start_x,  $nose_cone_stop_x, $nose_cone_top_radius, $nose_cone_cf_closest_approach_to_tip);
 
 $wind->generateGCodes();
 ?>
