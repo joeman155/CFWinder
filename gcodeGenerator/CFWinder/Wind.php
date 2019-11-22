@@ -1296,6 +1296,10 @@ public function generatePassCone($layer) {
         $phi_rel        = 0;
         $lead_distance_reduction = 0;
         
+         
+
+
+            
         
 if ($debug == 1) {        
         print "<pre>";
@@ -1400,34 +1404,6 @@ if ($debug == 1) {
             $lead_distance = $v[2];
             
             
-            // Get the original Lead Distance...
-            // We don't want first point affecting reduction in lead distance as we don't have a proper lead distance at this time.
-            // The second point we do, but we don't want a reduction here either....This second point is our DATUM.
-            /*
-            if ($i <= 2) {
-                if (is_nan($lead_distance)) {
-                    $original_lead_distance = 0;
-                    $lead_distance = 0;
-                } else {
-                    $original_lead_distance = $lead_distance;
-                }
-            }
-            */
-            if ($i == 1) {
-               // $original_lead_distance = $lead_distance;
-               // $previous_lead_distance = $lead_distance;
-                
-               // Calculations for Cylindrical part - required to find the LEAD DISTANCE at interface between cylinder and cone parts
-               $cf_angle_y = $this->calculateCFYAngle($this->getMandrelRadius(), $this->eyeletDistance, $this->eyeletHeight);
-               $v3 = $this->deriveVectorDispenserMandrel($cf_angle_y); 
-               
-               $this->nose_cone_cf_angle = min($this->nose_cone_cf_angle, round((180/pi()) * $angle_with_respect_to_mandrel_axis, 0));
-               $original_lead_distance = $this->deriveMaxVectorDispenserMandrel($v3, $this->nose_cone_cf_angle);
-
-               print "ORIGINAL LEAD DISTANCE (" . $i . ") is: " . $original_lead_distance . "<br/>";
-            }
-            
-            
             // We do some rounding and convert to degrees for display.
             $angle_with_respect_to_mandrel_axis_display = round((180/pi()) * $angle_with_respect_to_mandrel_axis, 0);
                          
@@ -1435,29 +1411,37 @@ if ($debug == 1) {
             $v[0] = 0;
             // Get the Unit vector
             $v_unit = $this->vectorUnit($v);
-                        
-           
+            
+
+            // For the first step, we get the original lead distance            
+            if ($i == 1) {
+              // Calculations for Cylindrical part - required to find the LEAD DISTANCE at interface between cylinder and cone parts
+              $cf_angle_y = $this->calculateCFYAngle($this->getMandrelRadius(), $this->eyeletDistance, $this->eyeletHeight);
+              $v3 = $this->deriveVectorDispenserMandrel($cf_angle_y); 
+               
+              $this->nose_cone_cf_angle = min($this->nose_cone_cf_angle, round((180/pi()) * $angle_with_respect_to_mandrel_axis, 0));
+              $original_lead_distance = $this->deriveMaxVectorDispenserMandrel($v3, $this->nose_cone_cf_angle);
+
+              print "ORIGINAL LEAD DISTANCE (" . $i . ") is: " . $original_lead_distance . "<br/>";            
+            }
+            
+            
             // As the resin bath travels down the X axis, the CF leads the mandrel/CF contact point less and less
             // i.e. it reduces. We calculate that reduction here.
-            // $lead_distance_reduction = $original_lead_distance - $lead_distance;
             $previous_lead_distance_reduction = $lead_distance_reduction;
             $lead_distance_reduction = $original_lead_distance - $lead_distance;
             
             // X - POS - Resin Bath
-            $x_pos = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/Sin($theta_end)) * ($cot_a/$k);
-            $x_pos_begin = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/sin($theta_begin)) * ($cot_a/$k) - $previous_lead_distance_reduction;
-            $x_pos_end   = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/sin($theta_end)) * ($cot_a/$k) - $lead_distance_reduction;
-            $x_travel    = $x_pos_end - $x_pos_begin;
-            
-            
-            // print "T: " . $theta_begin . "    TE: " . $theta_end . "    Xpos: "  . $x_pos . "   " . "previous_lead_distance_reduction: " . $previous_lead_distance_reduction . "    " . "lead_distance_reduction: " . $lead_distance_reduction . "    TRAVEL: " . $x_travel . "<br/>";
-            
+            $x_pos = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/Sin($theta_end)) * ($cot_a/$k);                        
             // Y - POS - Mandrel rotation
             $y_pos = round($phi_rel * $this->getMandrelRadius() * $meters_to_mm,0);
             // Z - POS - Presentation of the CF by dispenser head
             $z_pos = $this->sign($axial_speed) * round((180 / pi()) * acos($v_unit[1]),0);
             
             // We want the RELATIVE X 
+            $x_pos_begin = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/sin($theta_begin)) * ($cot_a/$k) - $previous_lead_distance_reduction;
+            $x_pos_end   = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/sin($theta_end)) * ($cot_a/$k) - $lead_distance_reduction;
+            $x_travel    = $x_pos_end - $x_pos_begin;            
             
             $this->nose_cone_points[$j][$i]['x_travel'] = $x_travel;
             $this->nose_cone_points[$j][$i]['s_travel'] = $s_angle;
