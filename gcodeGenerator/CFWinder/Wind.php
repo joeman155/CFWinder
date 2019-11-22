@@ -739,6 +739,7 @@ public function generatePassCone($layer) {
                // In EXAMPLE below, the /2 (denominator) is the nose_cone_cf_double_up
                //                   and the %4 is because turn_around_splits = 4
                // ------------------------------------------------------------------------------------------------------------------------------------------------------
+               //      1                                                                                            = 0
                //      2                 floor((2 - 1)/2) %4  =  0                                           x 90   = 0
                //      3                 floor((3 - 1)/2) %4  =  1                                           x 90   = 90
                //      4                 floor((4 - 1)/2) %4  =  1                                           x 90   = 90
@@ -748,33 +749,44 @@ public function generatePassCone($layer) {
                //      8                 floor((8 - 1)/2) %4  =  3                                           x 90   = 270
                //      9                 floor((9 - 1)/2) %4  =  0                                           x 90   = 0
                //     10                 floor((10- 1)/2) %4  =  0                                           x 90   = 0
-               //     11                 floor((11 - 1)/2) %4  =  1                                          x 90   = 90                         -1    x 90   = 90
+               //     11                 floor((11 - 1)/2) %4  =  1                                          x 90   = 90 
                //     12                 floor((12 - 1)/2) %4  =  1                                          x 90   = 90
-               //     13                 floor((13 - 1)/2) %4  =  2                                          x 90   = 180                                     -1    x 90   = 180
+               //     13                 floor((13 - 1)/2) %4  =  2                                          x 90   = 180
                //      .
                //      .
                //      .
-               //      .           
-               // $move_amount = $degrees_back_to_beginning + (($this->current_pass % $this->turn_around_splits) - 1) * 360/$this->turn_around_splits;
-               $move_amount = $degrees_back_to_beginning + floor(($this->current_pass  - 1)/$this->nose_cone_cf_double_up) % $this->turn_around_splits   * 360/$this->turn_around_splits;
+               //      .       
+               //      
+               //      The above works when $advancement_number = 2 ... i.e. we have dups of the angle on right 0 0 90 90 180 180 ...
+               //      If we were to have THREE CF strips adjacent, then $advancement_number would be 1,2,3 and we would have 0 0 0 90 90 90 180 180 180 ....
+               //          
+               // $spindle_move_amount = $degrees_back_to_beginning + (($this->current_pass % $this->turn_around_splits) - 1) * 360/$this->turn_around_splits;
+               $spindle_move_amount = $degrees_back_to_beginning + floor(($this->current_pass  - 1)/$this->nose_cone_cf_double_up) % $this->turn_around_splits   * 360/$this->turn_around_splits;
            // }          
             
             
-            // We move enough to get pairs of laydowns ADJACNT ...but this advancement is not permanent. It
-            // resets when we rotate based on $this->turn_around_splits
-            $move_amount = $move_amount + $advancement_number * $this->doubleUpAngle();
+            // The paramter $this->nose_cone_cf_double_up (Despite its name) indicates how may adjacent layers we have. Normally this would be two.
+            // When equal to 2, it effectively doubles the width of the Carbon Fiber being laid down.
+            // We go through all the adjacent layers...from 1 ... $this->$this->nose_cone_cf_double_up. Each time we do, we need to move around by ONE CF width.
+            // The variable $advancement_number is what we use to keep track of which CF we are up to.
+            $this->addGcodeComment("BEFORE: " . $spindle_move_amount);
+            $this->addGcodeComment("ADVANCEMENT_NUMBER: " . $advancement_number);
+            $spindle_move_amount = $spindle_move_amount + $advancement_number * $this->idealCFAdvancementAngle();
+            $this->addGcodeComment("AFTER: " . $spindle_move_amount);
             
-            // $this->addGcodeComment("MOVE AMOUNT: " . $move_amount);
+                        
+            
+            // $this->addGcodeComment("MOVE AMOUNT: " . $spindle_move_amount);
             // Extra Spindle turn is more of a guide for Nose Cone... it is the minimum degrees to turn at end
             // If to get back to beginning we exceed the minimum, we do just this.
             // If we don't, then we need to move back to beginning AND then move another 360 degrees.
             //
             // We assume $this->layers[$layer]['extra_spindle_turn']) < 360.
             //
-            if ($move_amount < $this->min_spindle_turn) {
-                $move_amount = $move_amount + 360;
+            if ($spindle_move_amount < $this->min_spindle_turn) {
+                $spindle_move_amount = $spindle_move_amount + 360;
             }
-            $this->addGcodeComment("MOVE AMOUNT BASE: " . $move_amount);
+            $this->addGcodeComment("MOVE AMOUNT BASE: " . $spindle_move_amount);
             
             // Offset is number of times we need to pass before we apply a PERMANENT  CFAdvancement. Applied when we get back to the beginning.
             $offset = floor(($this->current_pass  - 1)/ $this->turn_around_splits);
@@ -783,17 +795,13 @@ public function generatePassCone($layer) {
             
             
             // Advancement Angle
-            $move_amount = $move_amount + $offset * $this->idealCFAdvancementAngle();
-            
-            // after $this->turn_around_splits turns, we go advance a little
-            // if (($this->current_pass % $this->turn_around_splits) - 1 == 0) {
-            //     $move_amount = $move_amount + $this->actualCFAdvancementAngle($layer);
-            // }
-            
-            $this->addGcodeComment("FINAL MOVE AMOUNT: " . $move_amount);
+            $spindle_move_amount = $spindle_move_amount + $offset * $this->idealCFAdvancementAngle();
             
             
-            $s_travel = $move_amount;
+            $this->addGcodeComment("FINAL MOVE AMOUNT: " . $spindle_move_amount);
+            
+            
+            $s_travel = $spindle_move_amount;
             $z_angle = 0;
             $this->generateYCode($layer, $s_travel, $z_angle, $feedrate);
         } 
@@ -868,6 +876,8 @@ public function generatePassCone($layer) {
                $feedrate = $this->nose_cone_points[$advancement_number][$key]['feedrate'];
                $z_angle  = $this->nose_cone_points[$advancement_number][$key]['z_angle'];
                $x_travel = $this->nose_cone_points[$advancement_number][$key]['x_travel'];
+               
+              // $this->addGcodeComment("X_TRAVEL: " . $x_travel);
             
                // In the transitions we ALWAYS move at speed that will allow us to get to the desired CF ANGLE
                $x_travel = $x_travel;
@@ -1188,7 +1198,7 @@ public function generatePassCone($layer) {
     public function calculations($layer) {
         // Do Cone Calcs first as we need to get the CF Angle for Cylinder section
         for ($i = 0; $i < $this->nose_cone_cf_double_up; $i++) {
-            $distance = $this->nose_cone_cf_closest_approach_to_tip - ($i * $this->cf_width);
+            $distance = $this->nose_cone_cf_closest_approach_to_tip + ($i * $this->cf_width);
             print "Generating Cone information for " . $distance . " - " . $i . "<br />";
            $this->calcsNoseCone($layer, $distance, $i);
         }
@@ -1249,7 +1259,6 @@ public function generatePassCone($layer) {
      */
     public function calcsNoseCone($layer, $nose_cone_cf_closest_approach_to_tip, $j) {
         
-        
         // DEBUGGING
         $debug = 1;
         
@@ -1261,23 +1270,28 @@ public function generatePassCone($layer) {
         $meters_to_mm = 1000;
         $seconds_to_minutes = 60;
                  
-     
         if ($debug == 1) {
            print $this->getMandrelRadius()  .   "   " . $this->nose_cone_top_radius . "   " . $this->nose_cone_stop_x . "   " . $this->nose_cone_start_x . "<br/>";
         }
         
+        /* DERIVE CONSTANTS USED TO DERIVE OTHER QUANTITIES LATER ON. THESE CONSTANTS DEPEND UPON CONE TOPOLOGY */
         // Angles
         $alpha     = atan(($this->getMandrelRadius() - $this->nose_cone_top_radius)/ ($this->nose_cone_stop_x - $this->nose_cone_start_x));
         $cot_a     = 1 / tan($alpha);
         
         // Hyponensue distanace from base to theoretical point of cone. We say Theoretical because in actual fact we have a truncated Nose Cone
-        $cone_hyp = $this->getMandrelRadius() / Sin($alpha);
+        $cone_hyp = $this->getMandrelRadius() / sin($alpha);
         
         // Theta
         $theta_a   = asin($nose_cone_cf_closest_approach_to_tip / $cone_hyp);
         
         // Ratio of circumferences of circles - 2d : 3d
         $k         = (2 * pi() * $cone_hyp)/ (2 * pi() * $this->getMandrelRadius());
+        
+        $m              = 2 * (pi()/2 - $theta_a);
+        $axial_distance = 0;
+        $phi_rel        = 0;
+        
         
 if ($debug == 1) {        
         print "<pre>";
@@ -1296,26 +1310,26 @@ if ($debug == 1) {
         print "<th>Y</th>";
         print "<th>Z</th>";
         print "<th>Speed</th>";
+        print "<th>X Travel</th>";
         print "<th>Mandrel Angle (Deg)</th>";
         print "<th>Mandrel Rotation Speed (mm/min)</th>";
         print "<th>Resin Bath Speed (mm/min)</th>";    
         print "<th>Angle of CF wrt Mandrel Axis</th>";        
         print "<th>Lead Distance</th>";
-        print "<th>CF Angle</th>";
+        print "<th>Lead Distance CHANGE</th>";
+        print "<th>CF Angle Y</th>";
         print "</tr>";        
 }        
         
-        $m              = 2 * (pi()/2 - $theta_a);
-        $axial_distance = 0;
-        $phi_rel        = 0;
+
         
         // Go through Time steps, and devise the Travel in X, Y, Z
-        for ($i = 0; $i < $this->nose_cone_num_data_points; $i = $i + 1) {
+        for ($i = 1; $i <= $this->nose_cone_num_data_points; $i = $i + 1) {
             $theta = $theta_a  + $i * $m / ($this->nose_cone_num_data_points);
             $phi   = $theta * $k;
             
             // We get the INITIAL angles...
-            if ($i == 0) {
+            if ($i == 1) {
                 $start_theta = $theta;
                 $start_phi   = $phi;
             }
@@ -1326,7 +1340,7 @@ if ($debug == 1) {
 
             
             // We are only interested in RELATIVE angles.
-            $theta_rel   = $theta - $start_theta;
+//            $theta_rel   = $theta - $start_theta;
             $phi_rel_old = $phi_rel;
             $phi_rel     = $phi   - $start_phi;
             
@@ -1350,23 +1364,23 @@ if ($debug == 1) {
             $axial_distance = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/Sin($theta)) * ($cot_a / $k);
             $axial_speed = ($axial_distance - $axial_distance_old) / $this->seconds_per_tick;
 
-            
+            // Convert Axial speed to mm/min
             $axial_speed = $axial_speed * $meters_to_mm * $seconds_to_minutes;
             $axial_speed_display = round ($axial_speed);            
             
             
             // Combine Axial and Rotation speed (ignore radial speed... it is small)
-            $total_speed = sqrt($axial_speed * $axial_speed + $rotational_speed * $rotational_speed);
+            $total_speed = round(sqrt($axial_speed * $axial_speed + $rotational_speed * $rotational_speed), 0);
             $total_speed_display = round($total_speed, 0);
             
             
-            // Derive some quantities required below to get vector.
+            // Derive some quantities required below to get vectors (CF dispenser to Mandrel)
             $gap = $this->mandrelRadius + $this->eyeletDistance - $radius_3d;
             $cf_angle_y = (pi()/180) * $this->calculateCFYAngle($radius_3d, $gap, $this->eyeletHeight);
 
           
             
-            // Work out MANDREL (CF contact) <----> CF Dispenser VECTORY
+            // Work out MANDREL (CF contact) <----> CF Dispenser VECTOR
             // We need to work this out, so we can determine the Z angle
             // DISTANCE RADIALLY
             $v[0] = $radius_3d * sin($cf_angle_y) - ($this->mandrelRadius + $this->eyeletDistance);
@@ -1375,14 +1389,30 @@ if ($debug == 1) {
             $v[1] = $radius_3d * cos($cf_angle_y) - $this->eyeletHeight;
             
             // DISTANCE LONG AXIS
+            // speed
             if ($total_speed <> 0) {
                $angle_with_respect_to_mandrel_axis = acos($axial_speed / $total_speed);
             } else  {
                $angle_with_respect_to_mandrel_axis = pi()/2;    
             }
-            
+            // vector component in direction of mandrel axle
             $v[2] =  (($this->mandrelRadius + $this->eyeletDistance) - $radius_3d * sin($cf_angle_y))/ tan($angle_with_respect_to_mandrel_axis);
+            $previous_lead_distance = $lead_distance;  // This is only required for DISPLAY purposes.
             $lead_distance = $v[2];
+            
+            
+            // Get the original Lead Distance...
+            // We don't want first point affecting reduction in lead distance as we don't have a proper lead distance at this time.
+            // The second point we do, but we don't want a reduction here either....This second point is our DATUM.
+            if ($i <= 2) {
+                if (is_nan($lead_distance)) {
+                    $original_lead_distance = 0;
+                    $lead_distance = 0;
+                } else {
+                    $original_lead_distance = $lead_distance;
+                }
+            }
+            
             
             // We do some rounding and convert to degrees for display.
             $angle_with_respect_to_mandrel_axis_display = round((180/pi()) * $angle_with_respect_to_mandrel_axis, 0);
@@ -1393,8 +1423,13 @@ if ($debug == 1) {
             $v_unit = $this->vectorUnit($v);
                         
            
+            // As the resin bath travels down the X axis, the CF leads the mandrel/CF contact point less and less
+            // i.e. it reduces. We calculate that reduction here.
+            $lead_distance_reduction = $original_lead_distance - $lead_distance;
+            
             // X - POS - Resin Bath
-            $x_pos = ($lead_distance + ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/Sin($theta)) * ($cot_a/$k));
+            // $x_pos = ($lead_distance + ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/Sin($theta)) * ($cot_a/$k));
+            $x_pos = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/sin($theta)) * ($cot_a/$k) - $lead_distance_reduction;
             // Y - POS - Mandrel rotation
             $y_pos = round($phi_rel * $this->getMandrelRadius() * $meters_to_mm,0);
             // Z - POS - Presentation of the CF by dispenser head
@@ -1410,8 +1445,8 @@ if ($debug == 1) {
             $s_angle_prev = $s_angle;
             
             
-            // We do not want the first point which will have CF angle == 0
-            if ($angle_with_respect_to_mandrel_axis > 0) {
+            // We do not want the first point which will have nonsense CF angle
+            if ($i > 1) {
                $this->nose_cone_cf_angle = min($this->nose_cone_cf_angle, round((180/pi()) * $angle_with_respect_to_mandrel_axis, 0));
             }
             
@@ -1423,11 +1458,13 @@ if ($debug == 1) {
             print "<td>" . $y_pos . "</td>";
             print "<td>" . $z_pos . "</td>";
             print "<td>" . $total_speed_display . "</td>";
-            print "<td>" . $s_angle . "</td>";
+            print "<td>" . $this->nose_cone_points[$j][$i]['x_travel'] . "</td>";
+            print "<td>" . $this->nose_cone_points[$j][$i]['s_travel'] . "</td>";
             print "<td>" . $rotation_speed_display . "</td>";
             print "<td>" . $axial_speed_display . "</td>";   
             print "<td>" . $angle_with_respect_to_mandrel_axis_display . "</td>";
             print "<td>" . round($lead_distance * $meters_to_mm, 0) . "</td>";
+            print "<td>" . round($lead_distance_reduction * $meters_to_mm, 0) . "</td>";
             print "<td>" . $cf_angle_y . "</td>";
             print "</tr>";
 }            
@@ -1461,6 +1498,8 @@ if ($debug == 1) {
 
  public function doubleUpAngle()
  {
+     
+     /*
      // Need to derive tip to base along surface of the Cone
      $alpha     = atan(($this->getMandrelRadius() - $this->nose_cone_top_radius)/ ($this->nose_cone_stop_x - $this->nose_cone_start_x));
      $cone_hyp  = $this->getMandrelRadius() / Sin($alpha);
@@ -1469,9 +1508,14 @@ if ($debug == 1) {
      $theta1 = acos($this->nose_cone_cf_closest_approach_to_tip/$cone_hyp);
      $theta2 = acos(($this->nose_cone_cf_closest_approach_to_tip + $this->cf_width)/$cone_hyp);
           
-     $diff = $theta2 - $theta1;
+     $diff = 180 * ($theta2 - $theta1) / pi();
      
      return $diff;
+      * 
+      */
+     $angle = (180/pi()) * $this->cf_width / $this->mandrelRadius;
+     
+     return $angle;
  }
 
 }
