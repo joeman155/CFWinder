@@ -37,7 +37,7 @@ class Wind {
     private $seconds_per_tick;               // How long does each data point occupy in time.
     private $nose_cone_num_data_points;       // Number of data points per pass
     private $nose_cone_points;                // Where we collect all the incremental data points
-    private $nose_cone_cf_double_up;          // # of layers next to each other
+    private $nose_cone_num_adjacent_tows;          // # of layers next to each other
     
     // Variables used to help define how we create the cylindrical section of the NoseCone.
     private $nose_cone_cf_angle;              // The CF angle at BASE of the nose cone (used for cylinder)
@@ -189,7 +189,7 @@ class Wind {
         $this->nose_cone_cf_closest_approach_to_tip = $nose_cone_cf_closest_approach_to_tip;
         
         
-        $this->nose_cone_cf_double_up = 2;
+        $this->nose_cone_num_adjacent_tows = 2;
         
         
         $this->nose_cone_wind_time_per_pass         = 10;     // Seconds to do there and back
@@ -697,8 +697,8 @@ public function generatePassCone($layer) {
         $s_angle_starting_angle = 0;
         
         // Amount to rotate around...to get the different layers done.
-        $advancement_number = ($this->current_pass - 1) % $this->nose_cone_cf_double_up;
-        $this->addGcodeComment("ADVANCEMENT_NUMBER: " . $advancement_number);
+        $adjacent_number = ($this->current_pass - 1) % $this->nose_cone_num_adjacent_tows;
+        $this->addGcodeComment("ADJACENT_NUMBER: " . $adjacent_number);
             
             
         // In normal cylinders a Pass was in a SINGLE DIRECTION. i.e. you would need two passes to get back to where you started
@@ -712,14 +712,14 @@ public function generatePassCone($layer) {
 
             
             //$this->addGcodeComment("s_angle_starting_angle S: " . $s_angle_starting_angle);
-            $this->addGcodeComment("CURRENT S: " . $this->current_s);
+            $this->addGcodeComment("CURRENT S: " . round($this->current_s, 1) . " degrees");
             
             // Work out how many degrees to get back to the beginning
             $degrees_back_to_beginning = 360 * (1 - (($this->current_s - $s_angle_starting_angle)/360 - floor(($this->current_s - $s_angle_starting_angle)/360)));            
-            $this->addGcodeComment("Degrees back: " . $degrees_back_to_beginning);
+            $this->addGcodeComment("Degrees back: " . round($degrees_back_to_beginning, 1));
             
             // Work out how far to advance it...AROUND the cone
-            // current_pass-1     nose_cone_cf_double_up    =  VALUE
+            // current_pass-1     nose_cone_num_adjacent_tows    =  VALUE
             // ----------------------------------------------------
             //      2-1 = 1     %     2                     =    1
             //      3-1 = 2     %     2                     =    0
@@ -733,7 +733,7 @@ public function generatePassCone($layer) {
             //
             //
             // 
-            // In EXAMPLE below, the /2 (denominator) is the nose_cone_cf_double_up
+            // In EXAMPLE below, the /2 (denominator) is the nose_cone_num_adjacent_tows
             //                   and the %4 is because turn_around_splits = 4
             // ------------------------------------------------------------------------------------------------------------------------------------------------------
             //      1                                                                                            = 0
@@ -754,23 +754,20 @@ public function generatePassCone($layer) {
             //      .
             //      .       
             //      
-            //      The above works when $advancement_number = 2 ... i.e. we have dups of the angle on right 0 0 90 90 180 180 ...
-            //      If we were to have THREE CF strips adjacent, then $advancement_number would be 1,2,3 and we would have 0 0 0 90 90 90 180 180 180 ....
+            //      The above works when $adjacent_number = 2 ... i.e. we have dups of the angle on right 0 0 90 90 180 180 ...
+            //      If we were to have THREE CF strips adjacent, then $adjacent_number would be 1,2,3 and we would have 0 0 0 90 90 90 180 180 180 ....
             //          
             // $spindle_move_amount = $degrees_back_to_beginning + (($this->current_pass % $this->turn_around_splits) - 1) * 360/$this->turn_around_splits;
-            $spindle_move_amount = $degrees_back_to_beginning + floor(($this->current_pass  - 1)/$this->nose_cone_cf_double_up) % $this->turn_around_splits   * 360/$this->turn_around_splits;
+            $spindle_move_amount = $degrees_back_to_beginning + floor(($this->current_pass  - 1)/$this->nose_cone_num_adjacent_tows) % $this->turn_around_splits   * 360/$this->turn_around_splits;
       
             
             
-            // The paramter $this->nose_cone_cf_double_up (Despite its name) indicates how may adjacent layers we have. Normally this would be two.
+            // The paramter $this->nose_cone_num_adjacent_tows (Despite its name) indicates how may adjacent layers we have. Normally this would be two.
             // When equal to 2, it effectively doubles the width of the Carbon Fiber being laid down.
-            // We go through all the adjacent layers...from 1 ... $this->$this->nose_cone_cf_double_up. Each time we do, we need to move around by ONE CF width.
-            // The variable $advancement_number is what we use to keep track of which CF we are up to.
-            $this->addGcodeComment("BEFORE: " . $spindle_move_amount);
-            $this->addGcodeComment("ADVANCEMENT_NUMBER: " . $advancement_number);
-            $spindle_move_amount = $spindle_move_amount + $advancement_number * $this->idealCFAdvancementAngle();
-            $this->addGcodeComment("AFTER: " . $spindle_move_amount);
-            
+            // We go through all the adjacent layers...from 1 ... $this->$this->nose_cone_num_adjacent_tows. Each time we do, we need to move around by ONE CF width.
+            // The variable $adjacent_number is what we use to keep track of which CF we are up to.
+            $spindle_move_amount = $spindle_move_amount + $adjacent_number * $this->idealCFAdvancementAngle();
+         
                         
             
             // $this->addGcodeComment("MOVE AMOUNT: " . $spindle_move_amount);
@@ -783,20 +780,19 @@ public function generatePassCone($layer) {
             if ($spindle_move_amount < $this->min_spindle_turn) {
                 $spindle_move_amount = $spindle_move_amount + 360;
             }
-            $this->addGcodeComment("MOVE AMOUNT BASE: " . $spindle_move_amount);
             
             // Offset is number of times we need to pass before we apply a PERMANENT  CFAdvancement. Applied when we get back to the beginning.
             
-            $offset = floor(($this->current_pass  - 1)/ ($this->turn_around_splits * $this->nose_cone_cf_double_up)) ;
+            $offset = floor(($this->current_pass  - 1)/ ($this->turn_around_splits * $this->nose_cone_num_adjacent_tows)) ;
             
-            $this->addGcodeComment("OFFSET: " . $offset);
+            $this->addGcodeComment("ROTATION OFFSET: " . $offset);
             
             
             // Advancement Angle
-            $spindle_move_amount = $spindle_move_amount + $offset * $this->idealCFAdvancementAngle() * $this->nose_cone_cf_double_up;
+            $spindle_move_amount = $spindle_move_amount + $offset * $this->idealCFAdvancementAngle() * $this->nose_cone_num_adjacent_tows;
             
             
-            $this->addGcodeComment("FINAL MOVE AMOUNT: " . $spindle_move_amount);
+            $this->addGcodeComment("FINAL SPINGLE MOVE AMOUNT: " . round($spindle_move_amount, 1) . " degrees");
             
             
             $s_travel = $spindle_move_amount;
@@ -831,7 +827,7 @@ public function generatePassCone($layer) {
         
         
         
-        $this->addGcodeComment("START OF CYLINDRICAL");
+        $this->addGcodeComment("START OF CYLINDRICAL SECTION");
         
         # This is Where we do the CONE Component
         # This depends upon direction....
@@ -863,17 +859,15 @@ public function generatePassCone($layer) {
 
         
         
-        /* Now we need to do the Cone */
-        $this->addGcodeComment("START OF CONE - Path: " . $advancement_number);
-        
-        foreach ($this->nose_cone_points[$advancement_number] as $key => $value) {
+        /* Now we need to do the Cone */        
+        foreach ($this->nose_cone_points[$adjacent_number] as $key => $value) {
            // Skip the first point - we don't have speed data and this mucks up movements.         
         //   if ($key > 1) {
                // $cf_angle = $value['cf_angle'];
-               $s_travel = $this->nose_cone_points[$advancement_number][$key]['s_travel'];;
-               $feedrate = $this->nose_cone_points[$advancement_number][$key]['feedrate'];
-               $z_angle  = $this->nose_cone_points[$advancement_number][$key]['z_angle'];
-               $x_travel = $this->nose_cone_points[$advancement_number][$key]['x_travel'];
+               $s_travel = $this->nose_cone_points[$adjacent_number][$key]['s_travel'];;
+               $feedrate = $this->nose_cone_points[$adjacent_number][$key]['feedrate'];
+               $z_angle  = $this->nose_cone_points[$adjacent_number][$key]['z_angle'];
+               $x_travel = $this->nose_cone_points[$adjacent_number][$key]['x_travel'];
                
               // $this->addGcodeComment("X_TRAVEL: " . $x_travel);
             
@@ -1189,7 +1183,7 @@ public function generatePassCone($layer) {
     
     public function calculations($layer) {
         // Do Cone Calcs first as we need to get the CF Angle for Cylinder section
-        for ($i = 0; $i < $this->nose_cone_cf_double_up; $i++) {
+        for ($i = 0; $i < $this->nose_cone_num_adjacent_tows; $i++) {
             $distance = $this->nose_cone_cf_closest_approach_to_tip + ($i * $this->cf_width);
             // print "Generating Cone information for " . $distance . " - " . $i . "<br />";
            $this->calcsNoseCone($layer, $distance, $i);
@@ -1445,10 +1439,10 @@ if ($debug == 1) {
             
 if ($debug == 1) {            
             print "<tr>";
-            print "<td>" . $x_pos . "mm</td>";
-            print "<td>" . $y_pos . "mm</td>";
+            print "<td>" . $x_pos . "</td>";
+            print "<td>" . $y_pos . "</td>";
             
-            print "<td>" . $total_speed_display . "</td>";
+            print "<td>" . $total_speed_display . "</td>"; 
             print "<td>" . $this->nose_cone_points[$j][$i]['x_travel'] . " </td>";
             print "<td>" . $this->nose_cone_points[$j][$i]['s_travel'] . " </td>";
             print "<td>" . $this->nose_cone_points[$j][$i]['z_angle'] . " </td>";
