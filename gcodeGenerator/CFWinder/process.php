@@ -26,6 +26,7 @@ $nose_cone_start_x     = $_REQUEST['nose_cone_start_x'];
 $nose_cone_stop_x      = $_REQUEST['nose_cone_stop_x'];
 $nose_cone_top_radius  = $_REQUEST['nose_cone_top_radius'];
 $nose_cone_cf_closest_approach_to_tip = $_REQUEST['nose_cone_cf_closest_approach_to_tip'];
+$nose_cone_num_adjacent_tows          = $_REQUEST['nose_cone_num_adjacent_tows'];
 
 
 // Common Layer properties
@@ -37,7 +38,8 @@ $number_of_layers      = $_REQUEST['number_of_layers'];
 $wind = new Wind($mandrelRadius, $eyeletDistance, $eyeletHeight, $cf_width, $transition_feed_rate, $straight_feed_rate, 
                  $spindle_direction, $start_x, $start_y, $start_z,
                  $number_of_layers, $cylinder_transition_start_wind, $cylinder_transition_end_wind, 
-                 $nose_cone_start_x,  $nose_cone_stop_x, $nose_cone_top_radius, $nose_cone_cf_closest_approach_to_tip);
+                 $nose_cone_start_x,  $nose_cone_stop_x, $nose_cone_top_radius, $nose_cone_cf_closest_approach_to_tip,
+                 $nose_cone_num_adjacent_tows);
 
 $wind->generateGCodes();
 ?>
@@ -99,6 +101,7 @@ $wind->generateGCodes();
                     <th>Laydown Angle (deg)</th>
                     <th>Transition Start<br /> Wind Angle (deg)</th>
                     <th>Transition End<br /> Wind Angle (deg)</th>
+                    <th>Number of adjacent laydowns of CF</th>
                     <th># of passes to cover mandrel</th>
                     <th>Total Length (mm)</th>
                     <th>Useful Length (mm)</th>
@@ -114,6 +117,7 @@ $wind->generateGCodes();
                     <td><?=$wind->getNoseConeCFAngle()?></td>
                     <td><?=$wind->getTransitionStartWind()?></td>
                     <td><?=$wind->getTransitionEndWind()?></td>
+                    <td><?=$wind->getNumAdjacentLaydowns()?></td>
                     <td>TODO</td>
                     <td>TODO</td>
                     <td>TODO</td>

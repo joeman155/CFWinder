@@ -104,7 +104,11 @@ USE AT YOUR OWN RISK.
                 <tr>
                     <td>Transition End Wind (degrees)</td>
                     <td><input type="text" name="cylinder_transition_end_wind" value="360" /></td>
-                </tr>                     
+                </tr>     
+                <tr>
+                    <td># of Adjacent Winds</td>
+                    <td><input type="text" name="nose_cone_num_adjacent_tows" value="2" /></td>
+                </tr>                   
             </table>
             
             

@@ -141,7 +141,8 @@ class Wind {
     public function __construct($mandrelRadius, $eyeletDistance, $eyeletHeight, $cf_width, $transition_feed_rate, $straight_feed_rate,
                                 $spindle_direction, $start_x=0,  $start_s=0, $start_z=0,
                                 $number_of_layers, $cylinder_transition_start_wind, $cylinder_transition_end_wind, 
-                                $nose_cone_start_x, $nose_cone_stop_x, $nose_cone_top_radius, $nose_cone_cf_closest_approach_to_tip) {
+                                $nose_cone_start_x, $nose_cone_stop_x, $nose_cone_top_radius, $nose_cone_cf_closest_approach_to_tip,
+                                $nose_cone_num_adjacent_tows) {
         
         
         
@@ -189,12 +190,16 @@ class Wind {
         $this->nose_cone_cf_closest_approach_to_tip = $nose_cone_cf_closest_approach_to_tip;
         
         
-        $this->nose_cone_num_adjacent_tows = 2;
+        $this->nose_cone_num_adjacent_tows = $nose_cone_num_adjacent_tows;
         
         
-        $this->nose_cone_wind_time_per_pass         = 10;     // Seconds to do there and back
-        $this->nose_cone_num_data_points            = 200;
-        $this->seconds_per_tick                     = 0.1;
+        $this->nose_cone_num_data_points            = 100;
+        $this->seconds_per_tick                     = 0.2;
+        
+        // Total Time for one pass = $this->nose_cone_num_data_points * $this->seconds_per_tick
+        // So if you want less granular movements, you increase seconds_per_tick by scaling factor of XX
+        // and to keep SAME amount of time per pass, you reduce nose_cone_num_data_points by scalin factor of XX
+        
         
         $this->cylinder_transition_start_wind = $cylinder_transition_start_wind;
         $this->cylinder_transition_end_wind   = $cylinder_transition_end_wind;
@@ -232,6 +237,10 @@ class Wind {
     
     public function getOptimumZAngle() {
         return $this->optimum_z_angle;
+    }
+    
+    public function getNumAdjacentLaydowns() {
+        return $this->nose_cone_num_adjacent_tows;
     }
     
     public function getTransitionStartWind() {
@@ -857,8 +866,8 @@ public function generatePassCone($layer) {
         $this->generateXYCode($layer, $x_travel, $s_travel, $z_angle, $feedrate, $this->getNoseConeCFAngle());        
         
 
-        
-        
+        $ang = round(360 * ($this->current_s/360 - floor($this->current_s/360)),2);
+        $this->addGcodeComment("CURRENT_S_ANGLE_B: " . $ang);
         /* Now we need to do the Cone */        
         foreach ($this->nose_cone_points[$adjacent_number] as $key => $value) {
            // Skip the first point - we don't have speed data and this mucks up movements.         
@@ -881,6 +890,8 @@ public function generatePassCone($layer) {
                
        //    }
         }
+        $ang = round(360 * ($this->current_s/360 - floor($this->current_s/360)),2);
+        $this->addGcodeComment("CURRENT_S_ANGLE_E: " . $ang);
         
         
         # We are going back now...so direction changes.
@@ -1185,8 +1196,7 @@ public function generatePassCone($layer) {
         // Do Cone Calcs first as we need to get the CF Angle for Cylinder section
         for ($i = 0; $i < $this->nose_cone_num_adjacent_tows; $i++) {
             $distance = $this->nose_cone_cf_closest_approach_to_tip + ($i * $this->cf_width);
-            // print "Generating Cone information for " . $distance . " - " . $i . "<br />";
-           $this->calcsNoseCone($layer, $distance, $i);
+            $this->calcsNoseCone($layer, $distance, $i);
         }
         
         $this->calcsCylinder($layer);
