@@ -27,7 +27,7 @@ $nose_cone_stop_x      = $_REQUEST['nose_cone_stop_x'];
 $nose_cone_top_radius  = $_REQUEST['nose_cone_top_radius'];
 $nose_cone_cf_closest_approach_to_tip = $_REQUEST['nose_cone_cf_closest_approach_to_tip'];
 $nose_cone_num_adjacent_tows          = $_REQUEST['nose_cone_num_adjacent_tows'];
-
+$turn_around_splits    = $_REQUEST['turn_around_splits'];
 
 // Common Layer properties
 $cylinder_transition_end_wind    = $_REQUEST['cylinder_transition_end_wind'];
@@ -39,7 +39,7 @@ $wind = new Wind($mandrelRadius, $eyeletDistance, $eyeletHeight, $cf_width, $tra
                  $spindle_direction, $start_x, $start_y, $start_z,
                  $number_of_layers, $cylinder_transition_start_wind, $cylinder_transition_end_wind, 
                  $nose_cone_start_x,  $nose_cone_stop_x, $nose_cone_top_radius, $nose_cone_cf_closest_approach_to_tip,
-                 $nose_cone_num_adjacent_tows);
+                 $nose_cone_num_adjacent_tows, $turn_around_splits);
 
 $wind->generateGCodes();
 ?>

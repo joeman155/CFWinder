@@ -107,8 +107,12 @@ USE AT YOUR OWN RISK.
                 </tr>     
                 <tr>
                     <td># of Adjacent Winds</td>
-                    <td><input type="text" name="nose_cone_num_adjacent_tows" value="2" /></td>
-                </tr>                   
+                    <td><input type="text" name="nose_cone_num_adjacent_tows" value="1" /></td>
+                </tr>   
+                <tr>
+                    <td>Groups of CF windings. e.g. if it was 4, they would be 90degrees from each other.</td>
+                    <td><input type="text" name="turn_around_splits" value="1" /></td>
+                </tr>                     
             </table>
             
             

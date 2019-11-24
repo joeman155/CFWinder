@@ -142,7 +142,7 @@ class Wind {
                                 $spindle_direction, $start_x=0,  $start_s=0, $start_z=0,
                                 $number_of_layers, $cylinder_transition_start_wind, $cylinder_transition_end_wind, 
                                 $nose_cone_start_x, $nose_cone_stop_x, $nose_cone_top_radius, $nose_cone_cf_closest_approach_to_tip,
-                                $nose_cone_num_adjacent_tows) {
+                                $nose_cone_num_adjacent_tows, $turn_around_splits) {
         
         
         
@@ -193,7 +193,7 @@ class Wind {
         $this->nose_cone_num_adjacent_tows = $nose_cone_num_adjacent_tows;
         
         
-        $this->nose_cone_num_data_points            = 100;
+        $this->nose_cone_num_data_points            = 150;
         $this->seconds_per_tick                     = 0.2;
         
         // Total Time for one pass = $this->nose_cone_num_data_points * $this->seconds_per_tick
@@ -206,7 +206,7 @@ class Wind {
         $this->min_spindle_turn               = 180; // Constant until I feel it is better as a parameter
         
         // May make this parameter driven later.
-        $this->turn_around_splits = 4;
+        $this->turn_around_splits = $turn_around_splits;
 
     }
     
@@ -595,7 +595,6 @@ class Wind {
              $z_angle   = ($this->transition_in_schedule[$i-1]['z_angle'] + $this->transition_in_schedule[$i]['z_angle'])/2;   // Use the END z-angle
              $cf_angle  = $this->transition_in_schedule[$i]['cf_angle'];  // USe the END cf_angle
              
-             // $x_travel = $this->calculateXTravelMeters($s_travel, $this->layers[$layer]['cf_angle']);
              $x_travel = $this->calculateXTravelMeters($s_travel, $this->getNoseConeCFAngle());
              
              $this->transition_in_move[$i-1]['feedrate'] = $feedrate;
@@ -829,7 +828,7 @@ public function generatePassCone($layer) {
             // Work out how far to rotate the z-axis
             $z_angle = $this->getSpindleDirection() * $direction * $z_angle;          
             
-            // print "X_TRAVEL = $x_travel <br />";
+            // Generate the G-Code
             $this->generateXYCode($layer, $x_travel, $s_travel, $z_angle, $feedrate, $this->getNoseConeCFAngle());            
         }
         
@@ -838,23 +837,19 @@ public function generatePassCone($layer) {
         
         $this->addGcodeComment("START OF CYLINDRICAL SECTION");
         
-        # This is Where we do the CONE Component
-        # This depends upon direction....
-        #                   starting X, starting Y, starting z 
-        #
-        # FIRST, we need to constant radius section until certain distance.
+        # We need to create axis movements to create the cylindrical section. 
+        # This is similar to cylinder in the original program.
+.
         
         # This has to be some distance PAST the start of the Cone Base...because the Carbon Fiber vectors is trailing
-        # the position of the DElivery Head. WE know the distance it trails depends upon the CF Angle 
+        # the position of the Delivery Head. We know the distance it trails depends upon the CF Angle, and we know this angle
         # We are adopting the CYLINDER code and this "distance" was calulated PER layer.
         $x_travel = $this->getNoseConeStartX() + $this->layer_properties[$layer]['lead_distance'] - $this->current_x;
         
         $nose_cone_cylinder_start = $this->current_x;
        
         # The Angular distance to travel to ensure correct laydown angle
-        // $s_travel = $this->calculateYTravelDegrees($x_travel, $this->layers[$layer]['cf_angle']);
         $s_travel = $this->calculateYTravelDegrees($x_travel, $this->getNoseConeCFAngle());
-        
         
         # The optimum z angle for the cylinder sections
         $z_angle  = $this->getSpindleDirection() * $direction * $this->optimum_z_angle;  // work out how much further to rotate from current position to get to optimum angle.
@@ -866,8 +861,8 @@ public function generatePassCone($layer) {
         $this->generateXYCode($layer, $x_travel, $s_travel, $z_angle, $feedrate, $this->getNoseConeCFAngle());        
         
 
-        $ang = round(360 * ($this->current_s/360 - floor($this->current_s/360)),2);
-        $this->addGcodeComment("CURRENT_S_ANGLE_B: " . $ang);
+//        $ang = round(360 * ($this->current_s/360 - floor($this->current_s/360)),2);
+//        $this->addGcodeComment("CURRENT_S_ANGLE_B: " . $ang);
         /* Now we need to do the Cone */        
         foreach ($this->nose_cone_points[$adjacent_number] as $key => $value) {
            // Skip the first point - we don't have speed data and this mucks up movements.         
@@ -890,8 +885,8 @@ public function generatePassCone($layer) {
                
        //    }
         }
-        $ang = round(360 * ($this->current_s/360 - floor($this->current_s/360)),2);
-        $this->addGcodeComment("CURRENT_S_ANGLE_E: " . $ang);
+//        $ang = round(360 * ($this->current_s/360 - floor($this->current_s/360)),2);
+//        $this->addGcodeComment("CURRENT_S_ANGLE_E: " . $ang);
         
         
         # We are going back now...so direction changes.
