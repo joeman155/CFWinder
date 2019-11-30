@@ -94,10 +94,9 @@ $wind->generateGCodes();
         </table> 
         
         
-        <h1> Layers</h1>
+        <h1> Layer Definition</h1>
             <table border="1">
                 <tr>
-                    <th>Layer #</th>
                     <th>Laydown Angle (deg)</th>
                     <th>Transition Start<br /> Wind Angle (deg)</th>
                     <th>Transition End<br /> Wind Angle (deg)</th>
@@ -107,13 +106,9 @@ $wind->generateGCodes();
                     <th>Useful Length (mm)</th>
                     <th>Start of Usable Tube (mm)</th>
                     <th>Lead Distance (mm)</th>
-                    <th>~ Length CF (mm)</th>
+
                 </tr>          
-                <?
-                for ($layer = 0; $layer < $wind->getNumberOfLayers(); $layer++) {
-                ?>
                 <tr>
-                    <td>Layer <?=$layer?></td>
                     <td><?=$wind->getNoseConeCFAngle()?></td>
                     <td><?=$wind->getTransitionStartWind()?></td>
                     <td><?=$wind->getTransitionEndWind()?></td>
@@ -123,20 +118,29 @@ $wind->generateGCodes();
                     <td>TODO</td>
                     <td>TODO</td>
                     <td>TODO</td>
-                    <td>TODO</td>
                 </tr>         
-                <?
-                }
-                ?>
             </table>        
         
         <h1> Calculated Properties</h1>
         <table>
             
-            <tr>
-                <td>Winding Time</td>
+            <tr>            
+                <th>Winding Time</th>
                 <td><?=round($wind->getTime(), 0)?> seconds</td>
             </tr>    
+            
+            <tr>
+                <th>~ Length CF</th>        
+                <td><?=$wind->getCFLength()?> meters</td>      
+            </tr>
+            <tr>
+                <th>Number of layers</th>        
+                <td><?=$wind->getNumberOfLayers()?></td>      
+            </tr>    
+            <tr>
+                <th>Weight of CF</th>        
+                <td><?=$wind->getCFWeight()?></td>      
+            </tr>               
         </table>
         
         
