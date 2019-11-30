@@ -727,19 +727,19 @@ public function generatePassCone($layer) {
         // In normal cylinders a Pass was in a SINGLE DIRECTION. i.e. you would need two passes to get back to where you started
         // For Nose Cone a Single Pass gets you there AND back...so each pass, except for the first, we need to advanced the CF.
         // Hence the simple condition below.
-        if ($this->current_pass > 1) {
+        if ($this->current_pass >= 1) {
             
             $this->addGcodeComment("ADVANCING THE CF");
             $feedrate = $this->transition_feed_rate + 99;
             
 
             
-            //$this->addGcodeComment("s_angle_starting_angle S: " . $s_angle_starting_angle);
-            $this->addGcodeComment("CURRENT S: " . round($this->current_s, 1) . " degrees");
+            // $this->addGcodeComment("s_angle_starting_angle S: " . $s_angle_starting_angle);
+            $this->addGcodeComment("CURRENT S: " . round($this->current_s, 2) . " degrees");
             
             // Work out how many degrees to get back to the beginning
             $degrees_back_to_beginning = 360 * (1 - (($this->current_s - $s_angle_starting_angle)/360 - floor(($this->current_s - $s_angle_starting_angle)/360)));            
-            $this->addGcodeComment("Degrees back: " . round($degrees_back_to_beginning, 1));
+            $this->addGcodeComment("Degrees back: " . round($degrees_back_to_beginning, 2));
             
             // Work out how far to advance it...AROUND the cone
             // current_pass-1     nose_cone_num_adjacent_tows    =  VALUE
@@ -784,14 +784,16 @@ public function generatePassCone($layer) {
             $spindle_move_amount = $degrees_back_to_beginning + floor(($this->current_pass  - 1)/$this->nose_cone_num_adjacent_tows) % $this->turn_around_splits   * 360/$this->turn_around_splits;
       
             
+            if ($this->current_pass > 1) {
+               // The paramter $this->nose_cone_num_adjacent_tows (Despite its name) indicates how may adjacent layers we have. Normally this would be two.
+               // When equal to 2, it effectively doubles the width of the Carbon Fiber being laid down.
+               // We go through all the adjacent layers...from 1 ... $this->$this->nose_cone_num_adjacent_tows. Each time we do, we need to move around by ONE CF width.
+               // The variable $adjacent_number is what we use to keep track of which CF we are up to.
+               $spindle_move_amount = $spindle_move_amount + $adjacent_number * $this->idealCFAdvancementAngle();
+            }
             
-            // The paramter $this->nose_cone_num_adjacent_tows (Despite its name) indicates how may adjacent layers we have. Normally this would be two.
-            // When equal to 2, it effectively doubles the width of the Carbon Fiber being laid down.
-            // We go through all the adjacent layers...from 1 ... $this->$this->nose_cone_num_adjacent_tows. Each time we do, we need to move around by ONE CF width.
-            // The variable $adjacent_number is what we use to keep track of which CF we are up to.
-            $spindle_move_amount = $spindle_move_amount + $adjacent_number * $this->idealCFAdvancementAngle();
-         
-                        
+            
+            // $this->addGcodeComment("Advancement Angle: " . $this->idealCFAdvancementAngle());            
             
             // $this->addGcodeComment("MOVE AMOUNT: " . $spindle_move_amount);
             // Extra Spindle turn is more of a guide for Nose Cone... it is the minimum degrees to turn at end
@@ -804,17 +806,18 @@ public function generatePassCone($layer) {
             }
             
             // Offset is number of times we need to pass before we apply a PERMANENT  CFAdvancement. Applied when we get back to the beginning.
-            
-            $offset = floor(($this->current_pass  - 1)/ ($this->turn_around_splits * $this->nose_cone_num_adjacent_tows)) ;
-            
-            $this->addGcodeComment("ROTATION OFFSET: " . $offset);
-            
-            
-            // Advancement Angle
-            $spindle_move_amount = $spindle_move_amount + $offset * $this->idealCFAdvancementAngle() * $this->nose_cone_num_adjacent_tows;
-            
+            if ($this->current_pass > 1) {
+               $offset = floor(($this->current_pass  - 1)/ ($this->turn_around_splits * $this->nose_cone_num_adjacent_tows)) ;
+               $this->addGcodeComment("ROTATION OFFSET: " . $offset);
+
+               // Advancement Angle
+               $spindle_move_amount = $spindle_move_amount + $offset * $this->idealCFAdvancementAngle() * $this->nose_cone_num_adjacent_tows;
+            }
             
             $this->addGcodeComment("FINAL SPINGLE MOVE AMOUNT: " . round($spindle_move_amount, 1) . " degrees");
+            
+            $FINAL_S_POS = round(($this->current_s + $spindle_move_amount)/360, 2);
+            $this->addGcodeComment("FINAL S_POS = " . $FINAL_S_POS . " degrees");
             
             
             $s_travel = $spindle_move_amount;
@@ -974,7 +977,9 @@ public function generatePassCone($layer) {
      */
     public function getNumberOfPasses() {
         
-        $num_passes = ceil(360 / $this->idealCFAdvancementAngle());
+        $num_passes = ceil(360 / $this->idealCFAdvancementAngle()) + 1;
+        // We add one...to ensure we are truely covering surface.
+        
         
         return $num_passes;
     }
