@@ -816,8 +816,9 @@ public function generatePassCone($layer) {
             
             $this->addGcodeComment("FINAL SPINGLE MOVE AMOUNT: " . round($spindle_move_amount, 1) . " degrees");
             
-            $FINAL_S_POS = round(($this->current_s + $spindle_move_amount)/360, 2);
-            $this->addGcodeComment("FINAL S_POS = " . $FINAL_S_POS . " degrees");
+            $FINAL_S_POS_REV = round(($this->current_s + $spindle_move_amount)/360,0);
+            $FINAL_S_POS_DEG = round(360 * (($this->current_s + $spindle_move_amount)/360 - $FINAL_S_POS_REV), 1);
+            $this->addGcodeComment("FINAL S_POS = " . $FINAL_S_POS_REV . " revolutions and " . $FINAL_S_POS_DEG . " degrees");
             
             
             $s_travel = $spindle_move_amount;
