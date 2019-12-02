@@ -55,7 +55,7 @@ USE AT YOUR OWN RISK.
                 </tr>
                 <tr>
                     <td>Transition Feed Rate (mm/min)</td>
-                    <td><input type="text" name="transition_feed_rate" value="8000" /></td>
+                    <td><input type="text" name="transition_feed_rate" value="6000" /></td>
                 </tr>         
                 <tr>
                     <td>Spindle Rotation Direction</td>
@@ -76,11 +76,11 @@ USE AT YOUR OWN RISK.
                 </tr>              
                 <tr>
                     <td>Horizontal starting position of Nose Cone Base (meters)</td>
-                    <td><input type="text" name="nose_cone_start_x" value="0.265" /></td>
+                    <td><input type="text" name="nose_cone_start_x" value="0.375" /></td> <!-- 0.265 -->
                 </tr>      
                 <tr>
                     <td>Horizontal ending position of Nose Cone Top (meters)</td>
-                    <td><input type="text" name="nose_cone_stop_x" value="0.575" /></td>
+                    <td><input type="text" name="nose_cone_stop_x" value="0.667" /></td>  <!-- 0.575 -->
                 </tr>   
                 <tr>
                     <td>Radius of Nose Cone Top (meters)</td>

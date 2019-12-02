@@ -811,7 +811,7 @@ public function generatePassCone($layer) {
                $this->addGcodeComment("ROTATION OFFSET: " . $offset);
 
                // Advancement Angle
-               $spindle_move_amount = $spindle_move_amount + $offset * $this->idealCFAdvancementAngle() * $this->nose_cone_num_adjacent_tows;
+               $spindle_move_amount = $spindle_move_amount - $offset * $this->idealCFAdvancementAngle() * $this->nose_cone_num_adjacent_tows;
             }
             
             $this->addGcodeComment("FINAL SPINGLE MOVE AMOUNT: " . round($spindle_move_amount, 1) . " degrees");
