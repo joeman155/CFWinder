@@ -809,7 +809,7 @@ public function generatePassCone($layer) {
             
             // We don't want ADJACENT CF...this tends to screw things up. We space them out...then we come back at the end to
             // fill in the gaps.
-            $advance_amount = 3;
+            $advance_amount = 12;
             $number_per_rev = ceil($this->getNumberOfPasses() / $advance_amount );     # 48/3 = 16. i.e. 16 winds PER revolution
             $index = $this->current_pass % $number_per_rev;                          # To ensure each time we get 16 winds, we get through layers
             $starting_pos = ceil($this->current_pass / $number_per_rev );
