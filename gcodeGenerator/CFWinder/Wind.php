@@ -96,9 +96,6 @@ class Wind {
     private $transition_feed_rate;            // Feed rate of the transition
     
     
-    private $fudge_factor = 1.0;              // Trying to reduce chance of SLIP.  IT is basically a fudge factor which acknowledges errors in measuring and the whole system.
-                                              // We increase the angle by which we advance the Z-axis by a little. At present this is NOT used during transition at end of pass.
-
     
     private $max_x;                         // Max position the Train is moved...we work this out, so we know how far to move the heat gun at the end.
     
@@ -390,6 +387,9 @@ class Wind {
     /*
      * Given the X travel distance and CF Angle, work out the rotation distance. M - same units as X
      * 
+     * x_travel is in meters
+     * cf_angle is in degrees
+     * 
      * Result returned is in meters
      * 
      */
@@ -400,6 +400,9 @@ class Wind {
     
     /*
      * Given the X travel distance and CF Angle, work out the rotation distance. M - same units as X
+     * 
+     * x_travel is in meters
+     * cf_angle is in degrees
      * 
      * Result returned is in degrees
      * 
@@ -597,7 +600,7 @@ class Wind {
     }    
     
      /*
-      *  Create the actual movements required for the IN transition.
+      *  Create the actual movements required for the IN transition. (BEGINNING OF PASS)
       * 
       * We also calculate the final X position after this transition
       */
@@ -614,7 +617,7 @@ class Wind {
              
              $this->transition_in_move[$i-1]['feedrate'] = $feedrate;
              $this->transition_in_move[$i-1]['s_travel'] = $s_travel;
-             $this->transition_in_move[$i-1]['z_angle']  = $z_angle * $this->fudge_factor; 
+             $this->transition_in_move[$i-1]['z_angle']  = $z_angle; 
              $this->transition_in_move[$i-1]['cf_angle'] = $cf_angle;
              $this->transition_in_move[$i-1]['x_travel'] = $x_travel;
              
@@ -626,7 +629,7 @@ class Wind {
      
      
      /*
-      *  Create the actual movements required for the OUT transition.
+      *  Create the actual movements required for the OUT transition. (END OF PASS)
       */
      public function createOutMoveTransitionSchedule() {
 
@@ -640,7 +643,7 @@ class Wind {
              
              $this->transition_out_move[$i]['feedrate'] = $feedrate;
              $this->transition_out_move[$i]['s_travel']  = $s_travel;
-             $this->transition_out_move[$i]['z_angle']  = $z_angle * $this->fudge_factor;
+             $this->transition_out_move[$i]['z_angle']  = $z_angle;
              $this->transition_out_move[$i]['cf_angle'] = $cf_angle;
              $this->transition_out_move[$i]['x_travel'] = 0;
          }         
@@ -651,6 +654,9 @@ class Wind {
     
     /*
      *  Generate the "IN points" i.e. the positions of x,y,z axis for transistion (IN)...i.e. start of pass
+     * 
+     * The whole focus is to get the dispenser leading the CF/mandrel contact point by the right distance to
+     * give the right angle.
      * 
      *  $mandrel_angle = angle we wish to pass during transition - degrees  (not radians)
      *  $steps         = number of steps to split the curve
@@ -684,6 +690,10 @@ class Wind {
             // Work out angle of filament with resepect to the Mandrel axis which is the Z axis (cf_angle)
             $cf_angle = acos($cf_vector[2]) * 180 / pi();
             
+            // print "CF ANGLE: " . $cf_angle . "<br/>";
+            // print "cf_vector: " . $cf_vector[0] . ", " . $cf_vector[1] . ", " . $cf_vector[2] . "<br/>";
+            // print "for noseconeCF Angle: " . $this->getNoseConeCFAngle() . " the cylinder has a lead distance of " . $z . "<br/>";
+            
             $this->transition_in_schedule[$i]['feedrate'] = $this->transition_feed_rate;
             $this->transition_in_schedule[$i]['s_angle']  = $y;
             $this->transition_in_schedule[$i]['z_angle']  = $z_axis_angle;
@@ -701,16 +711,19 @@ class Wind {
         
         $v = $this->vectorUnit($v3);
         
-        return acos($v[1]) * 180 / pi() * $this->fudge_factor;
+        return acos($v[1]) * 180 / pi();
     }
     
 
     
-    
+     
     
     
     
 public function generatePassCone($layer) {
+       // $points = array(2,15,28,41,6,19,32,45,10,23,36,3,16,29,42,7,20,33,46,11,24,37);
+       // $points = array(1,2,3,4,5,19,32,45,10,23,36,3,16,29,42,7,20,33,46,11,24,37);
+    
         $this->current_pass++; 
         
         // Set Direction on START of pass
@@ -816,21 +829,27 @@ public function generatePassCone($layer) {
             
             
             // Offset is number of times we need to pass before we apply a PERMANENT  CFAdvancement. Applied when we get back to the beginning.
-            if ($this->current_pass > 1) {
+            if ($this->current_pass >= 1) {
                // $offset = floor(($this->current_pass  - 1)/ ($this->turn_around_splits * $this->nose_cone_num_adjacent_tows)) ;
                // $this->addGcodeComment("ROTATION OFFSET ORIG: " . $offset);
                
                // $offset = $advance_amount * $index + $starting_pos;
                // $this->addGcodeComment("ROTATION OFFSET FINAL: " . $offset);
                 
-               $offset_val = ($this->current_pass - 1 ) * 12 + $this->current_pass;
+               // OFFSET BASED ON CALCULATION
+               $offset_val = ($this->current_pass - 1 ) * 12 + $this->current_pass;               
                $offset = ($offset_val / $this->getNumberOfPasses() - floor($offset_val/$this->getNumberOfPasses())) * $this->getNumberOfPasses() + 1;
+                
+               // OFFSET BASED ON POINTS
+               // $offset = $points[$this->current_pass - 1];
+                
+                
                $this->addGcodeComment("ROTATION OFFSET FINAL: " . $offset);
                $spindle_move_amount = $spindle_move_amount + $offset * $this->idealCFAdvancementAngle() * $this->nose_cone_num_adjacent_tows;
                
                
-               // 
-               // Advancement Angle
+               // OFFSET BASED ON ONE ADVANCEMENT EACH TIME
+               // Advancement Angle 
                // $spindle_move_amount = $spindle_move_amount + $offset * $this->idealCFAdvancementAngle() * $this->nose_cone_num_adjacent_tows;
             }
             
@@ -887,7 +906,9 @@ public function generatePassCone($layer) {
         
        
         # The Angular distance to travel to ensure correct laydown angle
-        $s_travel = $this->calculateYTravelDegrees($x_travel, $this->getNoseConeCFAngle());
+        $cylinder_cf_angle = $this->getNoseConeCFAngle();
+        // $cylinder_cf_angle = 30;
+        $s_travel = $this->calculateYTravelDegrees($x_travel, $cylinder_cf_angle);
         
         # The optimum z angle for the cylinder sections
         $z_angle  = $this->getSpindleDirection() * $direction * $this->optimum_z_angle;  // work out how much further to rotate from current position to get to optimum angle.
@@ -896,7 +917,7 @@ public function generatePassCone($layer) {
         $feedrate = $this->straight_feed_rate;
         
         # This SHOULD be OKAY.
-        $this->generateXYCode($layer, $x_travel, $s_travel, $z_angle, $feedrate, $this->getNoseConeCFAngle());        
+        $this->generateXYCode($layer, $x_travel, $s_travel, $z_angle, $feedrate, $cylinder_cf_angle);        
         
         
         
@@ -1269,22 +1290,24 @@ public function generatePassCone($layer) {
         
         $v3 = $this->deriveVectorDispenserMandrel($cf_angle_y);
         
-        // $z_component = $this->deriveMaxVectorDispenserMandrel($v3, $this->layers[$layer]['cf_angle']);
-        $z_component = $this->deriveMaxVectorDispenserMandrel($v3, $this->getNoseConeCFAngle());
+        $cf_angle = $this->getNoseConeCFAngle();
+        $z_component = $this->deriveMaxVectorDispenserMandrel($v3, $cf_angle);
         
         
         $this->layer_properties['lead_distance'] = $z_component;
         $this->layer_properties['transition_end_length'] = $z_component;
         
+        // print "v3: " . $v3[0] . ", " . $v3[1] . ", " . $v3[2] . "<br/>";
         // print "for noseconeCF Angle: " . $this->getNoseConeCFAngle() . " the cylinder has a lead distance of " . $z_component . "<br/>";
+
         
         // Work out 'optimum' angle for this
         $this->optimum_z_angle = $this->deriveOptimumCFAngle($v3, $z_component);
          
-        // Generate transistion data for END of Pass
+        // Generate transistion data for BEGINNING of Pass
         $this->generateInPoints($this->getTransitionStartWind(), $this->transition_steps_in, $z_component, $v3);       
         
-        // Generate transistion data for START of Pass
+        // Generate transistion data for END of Pass
         $this->generateOutPoints($this->getTransitionEndWind(), $this->transition_steps_out, $z_component, $v3);
         
         // Generate array of moves to GET the transitions done
@@ -1499,7 +1522,20 @@ if ($debug == 1) {
             // Z - POS - Presentation of the CF by dispenser head
             $z_pos = $this->sign($axial_speed) * round((180 / pi()) * acos($v_unit[1]),0);
             
-            // We want the amount that the resin bath must TRAVEL from the previous position to the new position
+            
+            /*
+            // Trying to work out if values produced appear reasonable from intuitive self.
+            $a = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/sin($theta_begin)) * ($cot_a/$k);
+            $b = $previous_lead_distance_reduction;
+            
+            $c = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/sin($theta_end)) * ($cot_a/$k);
+            $d = $lead_distance_reduction;
+            
+            print "a, b = " . $a . "     " . $b . "<br/>";
+            print "c, d = " . $c . "     " . $d . "<br/>";
+            */
+            
+            // We want the amount that the resin bath must TRAVEL from the previous position to the new position            
             $x_pos_begin = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/sin($theta_begin)) * ($cot_a/$k) - $previous_lead_distance_reduction;
             $x_pos_end   = ($cone_hyp - $nose_cone_cf_closest_approach_to_tip/sin($theta_end)) * ($cot_a/$k) - $lead_distance_reduction;
             $x_travel    = $x_pos_end - $x_pos_begin;            
