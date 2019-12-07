@@ -814,15 +814,6 @@ public function generatePassCone($layer) {
             
             // $this->addGcodeComment("Advancement Angle: " . $this->idealCFAdvancementAngle());            
             
-            // $this->addGcodeComment("MOVE AMOUNT: " . $spindle_move_amount);
-            // Extra Spindle turn is more of a guide for Nose Cone... it is the minimum degrees to turn at end
-            // If to get back to beginning we exceed the minimum, we do just this.
-            // If we don't, then we need to move back to beginning AND then move another 360 degrees.
-            //
-            //
-            if ($spindle_move_amount < $this->min_spindle_turn) {
-                $spindle_move_amount = $spindle_move_amount + 360;
-            }
             
             // We don't want ADJACENT CF...this tends to screw things up. We space them out...then we come back at the end to
             // fill in the gaps.
@@ -858,6 +849,15 @@ public function generatePassCone($layer) {
                $this->addGcodeComment("LAYER OFFSET: " . $this->layer_spindle_increment * $layer);
                $spindle_move_amount = $spindle_move_amount + $this->layer_spindle_increment * $layer;               
 
+            }
+            
+            // Extra Spindle turn is more of a guide for Nose Cone... it is the minimum degrees to turn at end
+            // If to get back to beginning we exceed the minimum, we do just this.
+            // If we don't, then we need to move back to beginning AND then move another 360 degrees.
+            //
+            //
+            if ($spindle_move_amount < $this->min_spindle_turn) {
+                $spindle_move_amount = $spindle_move_amount + 360;
             }
             
             $this->addGcodeComment("FINAL SPINGLE MOVE AMOUNT: " . round($spindle_move_amount, 1) . " degrees");
