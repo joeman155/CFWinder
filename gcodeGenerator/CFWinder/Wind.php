@@ -1337,7 +1337,7 @@ public function generatePassCone($layer) {
     public function calcsNoseCone($nose_cone_cf_closest_approach_to_tip, $j) {
         
         // DEBUGGING
-        $debug = 1;
+        $debug = 0;
         
         
         // Conversion contants
