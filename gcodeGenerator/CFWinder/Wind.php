@@ -84,6 +84,8 @@ class Wind {
     private $cf_width;                        // Width of fiber in Meters
     private $straight_feed_rate;              // Rate of laydown of CF during straight sections.
     private $spindle_direction;               // Direction the spindle spins. Clockwise is default = +1
+    private $layer_spindle_increment;         // How much further (in degrees) to rotate spindle around from layer to layer.  
+                                              // The purpose is to have some overlap.
     
     private $number_of_layers;                // Number of layers
     private $layer_properties;                // Properties of layers
@@ -151,7 +153,9 @@ class Wind {
         
         // Layers we want to create
         $this->number_of_layers    = $number_of_layers;
-        $this->nose_cone_cf_angle  = 99999; // An absurd number that will not be min
+        $this->nose_cone_cf_angle  = 99999;  // An absurd number that will not be min
+        $this->layer_spindle_increment = 3;  // We might make this programmable later. We want it to be less than the amount we would
+                                             // normally advance the spindle to have adjacent layers.
         
         
         // Starting position
@@ -742,7 +746,7 @@ public function generatePassCone($layer) {
         // Hence the simple condition below.
         if ($this->current_pass >= 1) {
             
-            $this->addGcodeComment("ADVANCING THE CF");
+            $this->addGcodeComment("ADVANCING THE CF for layer: " . $layer);
             $feedrate = $this->transition_feed_rate + 99;
             
 
@@ -843,14 +847,17 @@ public function generatePassCone($layer) {
                // OFFSET BASED ON POINTS
                // $offset = $points[$this->current_pass - 1];
                 
+               // OFFSET BASED ON ONE ADVANCEMENT EACH TIME
+               // Advancement Angle 
+               // $spindle_move_amount = $spindle_move_amount + $offset * $this->idealCFAdvancementAngle() * $this->nose_cone_num_adjacent_tows;               
                 
                $this->addGcodeComment("ROTATION OFFSET FINAL: " . $offset);
                $spindle_move_amount = $spindle_move_amount + $offset * $this->idealCFAdvancementAngle() * $this->nose_cone_num_adjacent_tows;
                
-               
-               // OFFSET BASED ON ONE ADVANCEMENT EACH TIME
-               // Advancement Angle 
-               // $spindle_move_amount = $spindle_move_amount + $offset * $this->idealCFAdvancementAngle() * $this->nose_cone_num_adjacent_tows;
+               // Add the LAYER offset - to ensure subsequent layers are SLIGHTLY offset from previous ones... cover up gaps.
+               $this->addGcodeComment("LAYER OFFSET: " . $this->layer_spindle_increment * $layer);
+               $spindle_move_amount = $spindle_move_amount + $this->layer_spindle_increment * $layer;               
+
             }
             
             $this->addGcodeComment("FINAL SPINGLE MOVE AMOUNT: " . round($spindle_move_amount, 1) . " degrees");
