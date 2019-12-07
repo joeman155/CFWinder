@@ -99,7 +99,7 @@ USE AT YOUR OWN RISK.
                 </tr>        
                 <tr>
                     <td>Transition Start Wind (degrees)</td>
-                    <td><input type="text" name="cylinder_transition_start_wind" value="90" /></td>
+                    <td><input type="text" name="cylinder_transition_start_wind" value="180" /></td>
                 </tr>    
                 <tr>
                     <td>Transition End Wind (degrees)</td>

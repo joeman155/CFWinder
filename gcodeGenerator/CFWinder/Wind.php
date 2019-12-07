@@ -721,8 +721,8 @@ class Wind {
     
     
 public function generatePassCone($layer) {
-       // $points = array(2,15,28,41,6,19,32,45,10,23,36,3,16,29,42,7,20,33,46,11,24,37);
-       // $points = array(1,2,3,4,5,19,32,45,10,23,36,3,16,29,42,7,20,33,46,11,24,37);
+        // $points = array(2,15,28,41,6,19,32,45,10,23,36,3,16,29,42,7,20,33,46,11,24,37);
+        // $points = array(1,2,3,4,5,19,32,45,10,23,36,3,16,29,42,7,20,33,46,11,24,37);
     
         $this->current_pass++; 
         
@@ -965,7 +965,9 @@ public function generatePassCone($layer) {
         # the position of the DElivery Head. WE know the distance it trails depends upon the CF Angle 
         # We are adopting the CYLINDER code and this "distance" was calulated PER layer.
         // print "nose_cone_cylinder_start: " . $nose_cone_cylinder_start . " minus NoseConeStartX: " . $this->getNoseConeStartX() . ", LEAD: " . $this->layer_properties['lead_distance'] . "<br/>";
-        $x_travel = ($nose_cone_cylinder_start - $this->getNoseConeStartX() - $this->layer_properties['lead_distance']);
+        // $x_travel = ($nose_cone_cylinder_start - $this->getNoseConeStartX() - $this->layer_properties['lead_distance']);
+        // RiGHT BACK TO BEGINNING
+        $x_travel = $this->start_x - $this->current_x;
        
         # See if we are bringing x_travel OUT OF Bounds (< 0)
         if (abs($x_travel) > $this->current_x) {
