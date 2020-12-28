@@ -7,7 +7,7 @@ and open the template in the editor.
 -->
 <?php
 require "Wind.php";
-
+ 
 
 $mandrelRadius         = $_REQUEST['mandrelRadius'];
 $cf_width              = $_REQUEST['cf_width'];

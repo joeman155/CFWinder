@@ -1502,7 +1502,7 @@ if ($debug == 1) {
             $this->nose_cone_points[$i]['feedrate'] = $total_speed_display;
             $x_pos_prev = $x_pos;
             $s_angle_prev = $s_angle;
-            
+             
             
             
 if ($debug == 1) {            
