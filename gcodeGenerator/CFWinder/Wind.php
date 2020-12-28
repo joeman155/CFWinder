@@ -21,8 +21,6 @@ class Wind {
     private $spindle_direction;               // Direction the spindle spins. Clockwise is default = +1
     
     private $layers;                          // Information to describe how to build each layer
-    private $lead_distance;                   // The maximum distance by which the dispenser will lead the Mandrel/CF contact.
-    private $transition_end_length;           // This is just the Lead distance, but we define it to out of clarity.
     private $layer_properties;                // Properties of layers
     
     private $optimum_z_angle;                 // The optimum angle for the cf_angle required...to minimize CF width reduction.
